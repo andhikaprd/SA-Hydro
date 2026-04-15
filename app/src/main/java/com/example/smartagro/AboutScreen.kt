@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -20,45 +21,76 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CreamPastel)
-    ) {
-        // Header Area Background (Dark Green top 35%)
+fun AboutScreen(navController: NavController) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { 
+                    Text(
+                        text = "Tentang Aplikasi",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = DarkGreen,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
+            )
+        }
+    ) { innerPadding ->
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.35f)
-                .background(DarkGreen)
-        )
-
-        Column(
-            modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(innerPadding)
+                .background(CreamPastel)
         ) {
-            AboutHeader()
-
-            Spacer(modifier = Modifier.height(10.dp))
+            // Header Area Background (Dark Green top portion)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .background(DarkGreen)
+            )
 
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                AboutAppCard()
+                AboutHeader()
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                FeaturesSection()
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                ) {
+                    AboutAppCard()
 
-                Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    FeaturesSection()
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
             }
         }
     }
@@ -69,8 +101,7 @@ fun AboutHeader() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(top = 24.dp, bottom = 20.dp),
+            .padding(top = 20.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Surface(
@@ -112,7 +143,7 @@ fun AboutAppCard() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .offset(y = (-10).dp), // Slight overlap with header
+            .offset(y = (-10).dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -219,5 +250,5 @@ fun FeatureItem(icon: ImageVector, title: String, description: String) {
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
 fun AboutScreenPreview() {
-    AboutScreen()
+    AboutScreen(rememberNavController())
 }

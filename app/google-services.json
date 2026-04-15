@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "369813519939",
+    "firebase_url": "https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "smartagro-v1",
     "storage_bucket": "smartagro-v1.firebasestorage.app"
   },
@@ -12,7 +13,12 @@
           "package_name": "com.example.smartagro"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "369813519939-9cdn8tja8bh9qa2j3b9pjvqkrq5n8ke2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBKBZ5zLlw8iBpglMPuYdOYPGF3rEc1ZoU"
@@ -20,7 +26,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "369813519939-9cdn8tja8bh9qa2j3b9pjvqkrq5n8ke2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -113,8 +113,8 @@ fun AppNavigation() {
                 )
             }
             composable(Screen.Profile.route) { ProfileScreen(onBack = { navController.popBackStack() }) }
-            composable(Screen.About.route) { AboutScreen() }
-            composable(Screen.Help.route) { HelpGuideScreen() }
+            composable(Screen.About.route) { AboutScreen(navController) }
+            composable(Screen.Help.route) { HelpGuideScreen(navController) }
         }
     }
 }

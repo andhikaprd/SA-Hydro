@@ -102,7 +102,7 @@ fun SettingsScreen(
                             icon = Icons.Default.AccessTime,
                             iconColor = Color(0xFF1E88E5),
                             title = "Interval Pembacaan",
-                            trailingText = "2 detik"
+                            trailingText = "1 Jam" // Diubah menjadi 1 Jam (3.600.000 ms)
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
                         SettingsItem(

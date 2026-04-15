@@ -1,6 +1,10 @@
 package com.example.smartagro
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,13 +19,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
@@ -30,6 +37,16 @@ import com.example.smartagro.ui.theme.LightGreen
 fun ProfileScreen(onBack: () -> Unit = {}) {
     var isEditMode by remember { mutableStateOf(false) }
     
+    // 1. Siapkan State untuk menyimpan URI Gambar
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // 2. Siapkan Image Picker Launcher
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imageUri = uri
+    }
+
     // User data states
     var name by remember { mutableStateOf("Bejo Morena") }
     var phone by remember { mutableStateOf("+62 812 3456 7890") }
@@ -60,7 +77,9 @@ fun ProfileScreen(onBack: () -> Unit = {}) {
                 isEditMode = isEditMode,
                 onEditToggle = { isEditMode = !isEditMode },
                 name = name,
-                gardenName = gardenName
+                gardenName = gardenName,
+                imageUri = imageUri,
+                onImageClick = { launcher.launch("image/*") }
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -102,7 +121,9 @@ fun ProfileHeader(
     isEditMode: Boolean, 
     onEditToggle: () -> Unit,
     name: String,
-    gardenName: String
+    gardenName: String,
+    imageUri: Uri?,
+    onImageClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -142,12 +163,41 @@ fun ProfileHeader(
             }
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // UI FOTO PROFIL (Lingkaran)
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.2f))
+                .border(2.dp, Color.White, CircleShape)
+                .clickable { onImageClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            if (imageUri != null) {
+                AsyncImage(
+                    model = imageUri,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Default Profile",
+                    tint = Color.White,
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = name,
             color = Color.White,
-            fontSize = 26.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -207,7 +257,7 @@ fun SummaryStatCard(modifier: Modifier = Modifier, icon: ImageVector, iconColor:
             Surface(
                 shape = CircleShape,
                 color = iconColor.copy(alpha = 0.1f),
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(32.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
