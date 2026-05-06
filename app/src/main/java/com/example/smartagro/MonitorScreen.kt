@@ -43,10 +43,10 @@ fun MonitorScreen(viewModel: SmartAgroViewModel) {
     val tempStatus by viewModel.tempStatus.collectAsState()
     val peltierStatus by viewModel.peltierStatus.collectAsState()
     val forceCoolingFlag by viewModel.forceCoolingFlag.collectAsState()
+    val autoModeEnabled by viewModel.autoModeEnabled.collectAsState()
     val isDeviceOnline by viewModel.isDeviceOnline.collectAsState()
     val temperatureHistory by viewModel.temperatureHistory.collectAsState()
     
-    // Collect Min & Max Temp from ViewModel
     val minTemp by viewModel.minTemp.collectAsState()
     val maxTemp by viewModel.maxTemp.collectAsState()
 
@@ -76,7 +76,9 @@ fun MonitorScreen(viewModel: SmartAgroViewModel) {
                     tempStatus = tempStatus,
                     peltierStatus = peltierStatus,
                     forceCoolingFlag = forceCoolingFlag,
+                    autoModeEnabled = autoModeEnabled,
                     onForceCoolingChange = { viewModel.setForceCooling(it) },
+                    onAutoModeChange = { viewModel.setAutoMode(it) },
                     isOnline = isDeviceOnline,
                     temperatureHistory = temperatureHistory,
                     minTemp = minTemp,
@@ -191,7 +193,9 @@ fun MonitorLiveTab(
     tempStatus: String,
     peltierStatus: Boolean,
     forceCoolingFlag: Boolean,
+    autoModeEnabled: Boolean,
     onForceCoolingChange: (Boolean) -> Unit,
+    onAutoModeChange: (Boolean) -> Unit,
     isOnline: Boolean,
     temperatureHistory: List<Float>,
     minTemp: Float?,
@@ -205,7 +209,7 @@ fun MonitorLiveTab(
     ) {
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 1. Kartu Hijau LIVE MONITORING
+        // 1. Kartu Hijau LIVE MONITORING - Centered horizontalAlignment
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -215,7 +219,7 @@ fun MonitorLiveTab(
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(24.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -321,26 +325,49 @@ fun MonitorLiveTab(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            PeltierSwitchCard(
-                modifier = Modifier.fillMaxWidth(), 
-                title = "Force Cooling", 
-                desc = if (isOnline) "Paksa mendinginkan air nutrisi" else "Kontrol tidak tersedia (Offline)",
-                checked = forceCoolingFlag,
-                onCheckedChange = if (isOnline) onForceCoolingChange else { _ -> },
-                enabled = isOnline
-            )
-            
-            Text(
-                text = "Mode manual aktif maks 15 menit - Jeda beralih 30 detik",
-                color = Color.Gray,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
-            )
+            // SIDE-BY-SIDE CONTROLS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Column for Force Cooling
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    PeltierSwitchCard(
+                        modifier = Modifier.fillMaxWidth(), 
+                        title = "Force Cooling", 
+                        desc = if (isOnline) "Paksa mendinginkan" else "Offline",
+                        checked = forceCoolingFlag,
+                        onCheckedChange = if (isOnline) onForceCoolingChange else { _ -> },
+                        enabled = isOnline
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // Column for Mode Otomatis
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    PeltierSwitchCard(
+                        modifier = Modifier.fillMaxWidth(), 
+                        title = "Mode Otomatis", 
+                        desc = if (isOnline) "Sistem cerdas" else "Offline",
+                        checked = autoModeEnabled,
+                        onCheckedChange = if (isOnline) onAutoModeChange else { _ -> },
+                        enabled = isOnline,
+                        icon = Icons.Default.AutoMode
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 4. Grid Kotak Status (Now with Real-time Min/Max)
+        // 4. Grid Kotak Status
         StatsGrid(minTemp = minTemp, maxTemp = maxTemp)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -830,11 +857,12 @@ fun PeltierSwitchCard(
     desc: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: ImageVector = Icons.Default.AcUnit
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -851,7 +879,7 @@ fun PeltierSwitchCard(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.AcUnit, 
+                        imageVector = icon,
                         contentDescription = null, 
                         tint = if (enabled) Color(0xFF2196F3) else Color.Gray,
                         modifier = Modifier.size(24.dp)

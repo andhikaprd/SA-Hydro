@@ -62,6 +62,9 @@ dependencies {
     // Coil for Image Loading
     implementation(libs.coil.compose)
 
+    // Google reCAPTCHA Enterprise
+    implementation("com.google.android.recaptcha:recaptcha:18.4.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

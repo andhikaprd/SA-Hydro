@@ -1,12 +1,11 @@
 package com.example.smartagro
 
 import android.content.Context
+import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,11 +24,10 @@ import kotlin.random.Random
 
 class SmartAgroViewModel : ViewModel() {
 
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-
     private val _currentTemp = MutableStateFlow(25.1f)
     val currentTemp: StateFlow<Float> = _currentTemp.asStateFlow()
 
+    // Logika Pelacakan Suhu Min dan Maks
     private val _minTemp = MutableStateFlow<Float?>(22.1f)
     val minTemp: StateFlow<Float?> = _minTemp.asStateFlow()
 
@@ -38,6 +36,7 @@ class SmartAgroViewModel : ViewModel() {
 
     private var currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
+    // temperatureHistory untuk Sliding Window Grafik Real-time
     private val _temperatureHistory = MutableStateFlow<List<Float>>(
         listOf(24.5f, 25.0f, 25.2f, 24.8f, 25.1f, 25.5f, 25.3f, 25.6f, 25.4f, 25.2f)
     )
@@ -59,61 +58,48 @@ class SmartAgroViewModel : ViewModel() {
     private val _alertCount = MutableStateFlow(2)
     val alertCount: StateFlow<Int> = _alertCount.asStateFlow()
 
+    // Status riil hardware dari ESP32
     private val _peltierStatus = MutableStateFlow(false)
     val peltierStatus: StateFlow<Boolean> = _peltierStatus.asStateFlow()
 
+    // Perintah saklar manual dari Android
     private val _forceCoolingFlag = MutableStateFlow(false)
     val forceCoolingFlag: StateFlow<Boolean> = _forceCoolingFlag.asStateFlow()
 
+    // Mode Otomatis
+    private val _autoModeEnabled = MutableStateFlow(true)
+    val autoModeEnabled: StateFlow<Boolean> = _autoModeEnabled.asStateFlow()
+
+    // HEARTBEAT LOGIC
     private val _lastSeen = MutableStateFlow(System.currentTimeMillis())
     
     private val _isDeviceOnline = MutableStateFlow(true)
     val isDeviceOnline: StateFlow<Boolean> = _isDeviceOnline.asStateFlow()
 
-    private val _loginError = MutableStateFlow<String?>(null)
-    val loginError: StateFlow<String?> = _loginError.asStateFlow()
+    // --- PROFILE DATA STATES (Persistent during App Lifecycle) ---
+    private val _userName = MutableStateFlow("Bejo Morena")
+    val userName: StateFlow<String> = _userName.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _userPhone = MutableStateFlow("+62 812 3456 7890")
+    val userPhone: StateFlow<String> = _userPhone.asStateFlow()
+
+    private val _userEmail = MutableStateFlow("bejo.morena@gmail.com")
+    val userEmail: StateFlow<String> = _userEmail.asStateFlow()
+
+    private val _userLocation = MutableStateFlow("Pelaihari , Kalimantan Selatan")
+    val userLocation: StateFlow<String> = _userLocation.asStateFlow()
+
+    private val _userGardenName = MutableStateFlow("Kebun Selada Sejahtera")
+    val userGardenName: StateFlow<String> = _userGardenName.asStateFlow()
+
+    private val _profileImageUri = MutableStateFlow<Uri?>(null)
+    val profileImageUri: StateFlow<Uri?> = _profileImageUri.asStateFlow()
 
     init {
         simulateTemperatureChange()
         observePeltierLogic()
         startHeartbeatMonitor()
         simulateHeartbeat()
-    }
-
-    fun login(email: String, password: String, onLoginSuccess: () -> Unit) {
-        if (email.isEmpty() || password.isEmpty()) {
-            _loginError.value = "Email dan password tidak boleh kosong"
-            return
-        }
-        _isLoading.value = true
-        _loginError.value = null
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener { task ->
-                _isLoading.value = false
-                if (task.isSuccessful) {
-                    onLoginSuccess()
-                } else {
-                    _loginError.value = task.exception?.localizedMessage ?: "Login Gagal"
-                }
-            }
-    }
-
-    fun signInWithGoogle(idToken: String, onLoginSuccess: () -> Unit) {
-        _isLoading.value = true
-        _loginError.value = null
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener { task ->
-                _isLoading.value = false
-                if (task.isSuccessful) {
-                    onLoginSuccess()
-                } else {
-                    _loginError.value = task.exception?.localizedMessage ?: "Google Sign-In Gagal"
-                }
-            }
     }
 
     private fun startHeartbeatMonitor() {
@@ -129,8 +115,8 @@ class SmartAgroViewModel : ViewModel() {
 
     private fun observePeltierLogic() {
         viewModelScope.launch {
-            combine(_currentTemp, _forceCoolingFlag) { temp, manual ->
-                temp > 28f || manual
+            combine(_currentTemp, _forceCoolingFlag, _autoModeEnabled) { temp, manual, auto ->
+                (auto && temp > 28f) || manual
             }.collect { shouldBeOn ->
                 _peltierStatus.value = shouldBeOn
             }
@@ -141,6 +127,32 @@ class SmartAgroViewModel : ViewModel() {
         viewModelScope.launch {
             _forceCoolingFlag.value = active
         }
+    }
+
+    fun setAutoMode(active: Boolean) {
+        viewModelScope.launch {
+            _autoModeEnabled.value = active
+        }
+    }
+
+    // --- PROFILE UPDATES ---
+    fun updateUserProfile(
+        name: String,
+        phone: String,
+        email: String,
+        location: String,
+        garden: String
+    ) {
+        _userName.value = name
+        _userPhone.value = phone
+        _userEmail.value = email
+        _userLocation.value = location
+        _userGardenName.value = garden
+        // Persistence logic could be added here (e.g., DataStore)
+    }
+
+    fun updateProfileImage(uri: Uri?) {
+        _profileImageUri.value = uri
     }
 
     private fun simulateHeartbeat() {
@@ -158,7 +170,9 @@ class SmartAgroViewModel : ViewModel() {
                 delay(3600000L) 
                 val delta = if (_peltierStatus.value) -0.3f else 0.15f
                 val nextTemp = (_currentTemp.value + delta + (Random.nextFloat() * 0.2f - 0.1f)).coerceIn(20f, 32f)
+                
                 _currentTemp.value = nextTemp
+                
                 val nowStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                 if (nowStr != currentDate) {
                     currentDate = nowStr
@@ -168,12 +182,14 @@ class SmartAgroViewModel : ViewModel() {
                     _minTemp.value = if (_minTemp.value == null) nextTemp else minOf(_minTemp.value!!, nextTemp)
                     _maxTemp.value = if (_maxTemp.value == null) nextTemp else maxOf(_maxTemp.value!!, nextTemp)
                 }
+
                 val currentHistory = _temperatureHistory.value.toMutableList()
                 currentHistory.add(nextTemp)
                 if (currentHistory.size > 20) {
                     currentHistory.removeAt(0)
                 }
                 _temperatureHistory.value = currentHistory
+
                 if (nextTemp > 30f) {
                     _alertCount.value += 1
                 }

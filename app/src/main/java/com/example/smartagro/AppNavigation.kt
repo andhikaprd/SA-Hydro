@@ -91,12 +91,14 @@ fun AppNavigation() {
                     }
                 })
             }
-            composable(Screen.Dashboard.route) { 
+            composable(Screen.Dashboard.route) {
                 DashboardScreen(
                     viewModel = viewModel,
                     onNavigateToMonitor = { navController.navigate(Screen.Monitor.route) },
-                    onNavigateToHistory = { navController.navigate(Screen.Monitor.route) }
-                ) 
+                    onNavigateToHistory = { navController.navigate(Screen.Monitor.route) },
+                    onNavigateToNotification = { navController.navigate(Screen.Notification.route) },
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                )
             }
             composable(Screen.Monitor.route) { MonitorScreen(viewModel) }
             composable(Screen.Notification.route) { NotificationScreen() }
@@ -112,7 +114,12 @@ fun AppNavigation() {
                     }
                 )
             }
-            composable(Screen.Profile.route) { ProfileScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    // viewModel = viewModel, <-- Bikin error, sudah saya hapus
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(Screen.About.route) { AboutScreen(navController) }
             composable(Screen.Help.route) { HelpGuideScreen(navController) }
         }

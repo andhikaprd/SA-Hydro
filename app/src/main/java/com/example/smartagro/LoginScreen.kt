@@ -1,5 +1,8 @@
 package com.example.smartagro
 
+import android.app.Application
+import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -30,7 +33,7 @@ import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
 
-// --- IMPORT BARU UNTUK GOOGLE LOGIN & FIREBASE ---
+// --- IMPORT UNTUK GOOGLE LOGIN & FIREBASE ---
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -40,10 +43,20 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.launch
 
+// --- IMPORT UNTUK GOOGLE RECAPTCHA ENTERPRISE ---
+import com.google.android.recaptcha.Recaptcha
+import com.google.android.recaptcha.RecaptchaAction
+import com.google.android.recaptcha.RecaptchaClient
+
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // SharedPreferences setup
+    val sharedPreferences = remember {
+        context.getSharedPreferences("SmartAgroPrefs", Context.MODE_PRIVATE)
+    }
 
     // Inisialisasi Firebase Auth & Credential Manager
     val auth = remember { FirebaseAuth.getInstance() }
@@ -52,9 +65,41 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var rememberMe by remember { mutableStateOf(false) }
 
-    // State untuk loading indikator saat tombol Google diklik
+    // --- STATE RECAPTCHA & LOADING ---
+    var recaptchaClient by remember { mutableStateOf<RecaptchaClient?>(null) }
+    var isLoginLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+
+    // --- LOGIKA AUTO-FILL & INISIALISASI RECAPTCHA SAAT SCREEN DIBUKA ---
+    LaunchedEffect(Unit) {
+        // Auto-fill dari SharedPreferences
+        val isSaved = sharedPreferences.getBoolean("remember_me", false)
+        if (isSaved) {
+            email = sharedPreferences.getString("saved_email", "") ?: ""
+            password = sharedPreferences.getString("saved_password", "") ?: ""
+            rememberMe = true
+        }
+
+        // Inisialisasi Google reCAPTCHA Client dengan ID YANG BENAR
+        try {
+            val application = context.applicationContext as Application
+            Recaptcha.getClient(application, "6LdrFNwsAAAAAIlMd1O4zN2-81apvHrW82a83F-m")
+                .onSuccess { client ->
+                    recaptchaClient = client
+                    Log.d("RECAPTCHA", "reCAPTCHA berhasil diinisialisasi")
+                }
+                .onFailure { exception ->
+                    // MEMUNCULKAN PESAN ERROR ASLI DARI GOOGLE
+                    Log.e("RECAPTCHA_ERROR", "Gagal inisialisasi: ${exception.message}")
+                    Toast.makeText(context, "Error reCAPTCHA: ${exception.message}", Toast.LENGTH_LONG).show()
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Exception: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Validation logic for button enabled state
     val isEmailValid = email.contains("@") && email.contains(".")
@@ -117,7 +162,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Login Card
             Card(
@@ -208,6 +253,25 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         )
                     )
 
+                    // --- FITUR SIMPAN SANDI ---
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = rememberMe,
+                            onCheckedChange = { rememberMe = it },
+                            colors = CheckboxDefaults.colors(checkedColor = LightGreen)
+                        )
+                        Text(
+                            text = "Simpan Sandi",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                    }
+
                     Text(
                         text = "Lupa kata sandi?",
                         color = DarkGreen,
@@ -215,22 +279,52 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .align(Alignment.End)
-                            .padding(top = 8.dp)
+                            .padding(top = 4.dp)
                             .clickable { /* Handle forgot password */ }
                     )
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // Login Button with Hardcoded logic
+                    // --- LOGIN BUTTON DENGAN VERIFIKASI RECAPTCHA ---
                     Button(
                         onClick = {
-                            if (email == "admin@gmail.com" && password == "admin123") {
-                                onLoginSuccess()
-                            } else {
-                                Toast.makeText(context, "Email atau Kata Sandi salah", Toast.LENGTH_SHORT).show()
+                            coroutineScope.launch {
+                                isLoginLoading = true
+
+                                if (recaptchaClient != null) {
+                                    // Eksekusi pemeriksaan reCAPTCHA di belakang layar
+                                    recaptchaClient!!.execute(RecaptchaAction.LOGIN)
+                                        .onSuccess { token ->
+                                            isLoginLoading = false
+
+                                            // Lolos validasi reCAPTCHA, jalankan logika login asli
+                                            if (email == "admin@gmail.com" && password == "admin123") {
+                                                if (rememberMe) {
+                                                    sharedPreferences.edit()
+                                                        .putString("saved_email", email)
+                                                        .putString("saved_password", password)
+                                                        .putBoolean("remember_me", true)
+                                                        .apply()
+                                                } else {
+                                                    sharedPreferences.edit().clear().apply()
+                                                }
+                                                onLoginSuccess()
+                                            } else {
+                                                Toast.makeText(context, "Email atau Kata Sandi salah", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                        .onFailure { exception ->
+                                            isLoginLoading = false
+                                            Log.e("RECAPTCHA_EXECUTE", "Gagal eksekusi: ${exception.message}")
+                                            Toast.makeText(context, "Akses ditolak: ${exception.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                } else {
+                                    isLoginLoading = false
+                                    Toast.makeText(context, "Sistem keamanan belum siap, silakan coba beberapa saat lagi.", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
-                        enabled = isFormValid,
+                        enabled = isFormValid && !isLoginLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -241,9 +335,19 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Login, contentDescription = null)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("Masuk", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            if (isLoginLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Memverifikasi...", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(Icons.Default.Login, contentDescription = null)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Masuk", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
@@ -257,13 +361,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // --- TOMBOL GOOGLE LOGIN BARU ---
+                    // Google Login Button
                     OutlinedButton(
                         onClick = {
                             coroutineScope.launch {
                                 isGoogleLoading = true
                                 try {
-                                    // 1. Setup opsi request ke Google
                                     val googleIdOption = GetGoogleIdOption.Builder()
                                         .setFilterByAuthorizedAccounts(false)
                                         .setServerClientId(context.getString(R.string.default_web_client_id))
@@ -274,11 +377,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                         .addCredentialOption(googleIdOption)
                                         .build()
 
-                                    // 2. Munculkan Pop-Up Pilih Akun Google
                                     val result = credentialManager.getCredential(context, request)
                                     val credential = result.credential
 
-                                    // 3. Proses Token dan Kirim ke Firebase
                                     if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                                         val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                                         val authCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
@@ -288,7 +389,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                                 isGoogleLoading = false
                                                 if (task.isSuccessful) {
                                                     Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
-                                                    onLoginSuccess() // Pindah ke Dashboard
+                                                    onLoginSuccess()
                                                 } else {
                                                     Toast.makeText(context, "Gagal masuk: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                                                 }
@@ -299,7 +400,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                     }
                                 } catch (e: Exception) {
                                     isGoogleLoading = false
-                                    // Error ini biasanya muncul kalau user menekan tombol "Batal" di luar pop-up
                                     Toast.makeText(context, "Login dibatalkan", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -334,7 +434,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(3f))
 
             // Footer
             val annotatedString = buildAnnotatedString {

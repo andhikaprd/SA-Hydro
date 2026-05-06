@@ -20,19 +20,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(
     viewModel: SmartAgroViewModel,
     onNavigateToMonitor: () -> Unit = {},
-    onNavigateToHistory: () -> Unit = {}
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToNotification: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     // Collecting State from ViewModel
     val currentTemp by viewModel.currentTemp.collectAsState()
@@ -53,7 +59,10 @@ fun DashboardScreen(
                 .fillMaxWidth()
                 .background(DarkGreen)
         ) {
-            DashboardHeader()
+            DashboardHeader(
+                onNotificationClick = onNavigateToNotification,
+                onProfileClick = onNavigateToProfile
+            )
         }
 
         // Scrollable Content
@@ -61,11 +70,11 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp), // Added vertical padding
-            verticalArrangement = Arrangement.spacedBy(24.dp) // Spacing between cards
+                .padding(horizontal = 20.dp, vertical = 24.dp), // Lega vertical padding
+            verticalArrangement = Arrangement.spacedBy(24.dp) // Ruang napas konsisten antar elemen
         ) {
             CurrentStatusCard(
-                temp = String.format("%.1f", currentTemp),
+                temp = String.format(Locale.getDefault(), "%.1f", currentTemp),
                 status = tempStatus,
                 updatedAt = lastUpdated
             )
@@ -91,6 +100,13 @@ fun DashboardScreen(
 
 @Composable
 fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(
+        color = Color(0xFF1B5E20),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Medium
+    )
+
     Canvas(modifier = modifier) {
         if (data.size < 2) return@Canvas
 
@@ -100,14 +116,17 @@ fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
         val maxTemp = 35f
         val range = maxTemp - minTemp
 
-        val path = Path()
-        data.forEachIndexed { index, temp ->
+        val points = data.mapIndexed { index, temp ->
             val x = index * (width / (data.size - 1))
-            val y = height - ((temp.coerceIn(minTemp, maxTemp) - minTemp) / range) * height
-            if (index == 0) {
-                path.moveTo(x, y)
-            } else {
-                path.lineTo(x, y)
+            val normalizedTemp = temp.coerceIn(minTemp, maxTemp)
+            val y = height - ((normalizedTemp - minTemp) / range) * height
+            androidx.compose.ui.geometry.Offset(x, y)
+        }
+
+        val path = Path().apply {
+            points.forEachIndexed { index, offset ->
+                if (index == 0) moveTo(offset.x, offset.y)
+                else lineTo(offset.x, offset.y)
             }
         }
 
@@ -116,11 +135,35 @@ fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
             color = Color(0xFF4CAF50),
             style = Stroke(width = 5f)
         )
+
+        points.forEachIndexed { index, offset ->
+            drawCircle(
+                color = Color(0xFF2E7D32),
+                radius = 8f,
+                center = offset
+            )
+
+            val text = String.format(Locale.getDefault(), "%.1f", data[index])
+            val textLayoutResult = textMeasurer.measure(text, labelStyle)
+            
+            drawText(
+                textMeasurer = textMeasurer,
+                text = text,
+                style = labelStyle,
+                topLeft = androidx.compose.ui.geometry.Offset(
+                    x = offset.x - (textLayoutResult.size.width / 2),
+                    y = offset.y - textLayoutResult.size.height - 10f
+                )
+            )
+        }
     }
 }
 
 @Composable
-fun DashboardHeader() {
+fun DashboardHeader(
+    onNotificationClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -149,8 +192,12 @@ fun DashboardHeader() {
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HeaderIconBox(icon = Icons.Outlined.Notifications)
-            HeaderIconBox(icon = Icons.Default.Person)
+            IconButton(onClick = onNotificationClick) {
+                HeaderIconBox(icon = Icons.Outlined.Notifications)
+            }
+            IconButton(onClick = onProfileClick) {
+                HeaderIconBox(icon = Icons.Default.Person)
+            }
         }
     }
 }
@@ -182,8 +229,10 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .padding(24.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally // Konten rata tengah persis
         ) {
             Text(
                 text = "STATUS SUHU AIR SAAT INI",
@@ -192,16 +241,16 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
                 fontWeight = FontWeight.Bold
             )
             
-            Spacer(modifier = Modifier.height(24.dp)) // Added breathing room
+            Spacer(modifier = Modifier.height(24.dp)) // Ruang napas proporsional
 
             Text(
                 text = "$temp °C",
-                color = Color(0xFF1B5E20), // Dark green for value
+                color = Color(0xFF1B5E20), 
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(16.dp)) // Added breathing room
+            Spacer(modifier = Modifier.height(16.dp)) // Ruang napas proporsional
 
             Surface(
                 color = LightGreen.copy(alpha = 0.15f),
@@ -216,7 +265,7 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp)) // Added breathing room
+            Spacer(modifier = Modifier.height(24.dp)) // Ruang napas proporsional
 
             Text(
                 text = "Diperbarui $updatedAt",

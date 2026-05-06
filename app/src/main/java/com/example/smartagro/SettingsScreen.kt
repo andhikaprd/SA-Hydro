@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,7 +24,7 @@ import com.example.smartagro.ui.theme.LightGreen
 
 @Composable
 fun SettingsScreen(
-    onNavigateToProfile: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}, // Parameter dibiarkan agar AppNavigation.kt tidak error
     onNavigateToAbout: () -> Unit = {},
     onNavigateToHelp: () -> Unit = {},
     onLogout: () -> Unit = {}
@@ -44,12 +43,6 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // MODE OPERASI Section
-            Column {
-                SectionLabel("MODE OPERASI")
-                OperationModeCard()
-            }
-
             // KEAMANAN IOT Section
             Column {
                 SectionLabel("KEAMANAN IOT")
@@ -102,7 +95,7 @@ fun SettingsScreen(
                             icon = Icons.Default.AccessTime,
                             iconColor = Color(0xFF1E88E5),
                             title = "Interval Pembacaan",
-                            trailingText = "1 Jam" // Diubah menjadi 1 Jam (3.600.000 ms)
+                            trailingText = "1 Jam"
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
                         SettingsItem(
@@ -181,16 +174,10 @@ fun SettingsScreen(
                 ) {
                     Column {
                         SettingsItem(
-                            icon = Icons.Default.Person,
-                            iconColor = Color(0xFF43A047),
-                            title = "Profil Pengguna",
-                            onClick = onNavigateToProfile
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
                             icon = Icons.Default.Info,
                             iconColor = Color(0xFF1E88E5),
                             title = "Tentang Aplikasi",
+                            endIcon = Icons.Default.KeyboardArrowRight,
                             onClick = onNavigateToAbout
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
@@ -198,6 +185,7 @@ fun SettingsScreen(
                             icon = Icons.Default.MenuBook,
                             iconColor = Color(0xFFF57C00),
                             title = "Panduan & Bantuan",
+                            endIcon = Icons.Default.KeyboardArrowRight,
                             onClick = onNavigateToHelp
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
@@ -254,79 +242,13 @@ fun SectionLabel(text: String) {
 }
 
 @Composable
-fun OperationModeCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkGreen.copy(alpha = 0.9f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Memory,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(text = "Mode Otomatis", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(text = "Peltier dikontrol otomatis berdasarkan suhu", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text(text = "Batas bawah", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp)
-                        Text(text = "18°C", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                    Spacer(modifier = Modifier.width(24.dp))
-                    Column {
-                        Text(text = "Batas atas", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp)
-                        Text(text = "18°C", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                }
-                
-                Surface(
-                    color = Color.White.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.clickable { /* Action */ }
-                ) {
-                    Text(
-                        text = "Ubah",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun SettingsItem(
     icon: ImageVector,
     iconColor: Color,
     title: String,
     titleColor: Color = Color.Black,
     trailingText: String? = null,
+    endIcon: ImageVector? = null,
     onClick: () -> Unit = {}
 ) {
     Row(
@@ -350,22 +272,34 @@ fun SettingsItem(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         Text(
             text = title,
             color = titleColor,
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
+            fontWeight = FontWeight.Medium
         )
-        
+
+        // Mendorong trailing element (teks/icon) mentok ke kanan
+        Spacer(modifier = Modifier.weight(1f))
+
         if (trailingText != null) {
             Text(
                 text = trailingText,
                 color = Color.Gray,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                modifier = Modifier.padding(end = if (endIcon != null) 8.dp else 0.dp)
+            )
+        }
+
+        if (endIcon != null) {
+            Icon(
+                imageVector = endIcon,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
             )
         }
     }
