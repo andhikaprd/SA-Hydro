@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,7 +41,6 @@ fun ProfileScreen(onBack: () -> Unit = {}) {
 
     var isEditMode by remember { mutableStateOf(false) }
 
-    // Mengambil data dari SharedPreferences agar tidak reset saat refresh
     var name by remember { mutableStateOf(sharedPreferences.getString("name", "Bejo Morena") ?: "Bejo Morena") }
     var phone by remember { mutableStateOf(sharedPreferences.getString("phone", "+62 812 3456 7890") ?: "+62 812 3456 7890") }
     var email by remember { mutableStateOf(sharedPreferences.getString("email", "bejo.morena@gmail.com") ?: "bejo.morena@gmail.com") }
@@ -59,7 +59,6 @@ fun ProfileScreen(onBack: () -> Unit = {}) {
         }
     }
 
-    // Fungsi untuk menyimpan data secara permanen saat tombol "Simpan" diklik
     val onEditToggle = {
         if (isEditMode) {
             sharedPreferences.edit().apply {
@@ -74,13 +73,11 @@ fun ProfileScreen(onBack: () -> Unit = {}) {
         isEditMode = !isEditMode
     }
 
-    // Struktur Layout Utama
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(CreamPastel)
     ) {
-        // HEADER (Statis, tidak bisa di-scroll, background hijau tidak akan ketarik)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -97,11 +94,10 @@ fun ProfileScreen(onBack: () -> Unit = {}) {
             )
         }
 
-        // KONTEN BAWAH (Bisa di-scroll)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f) // Mengambil sisa ruang layar
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
@@ -147,29 +143,37 @@ fun ProfileHeader(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        // PERBAIKAN STRUKTUR HEADER AGAR PRESISI
+        Box(
+            modifier = Modifier.fillMaxWidth()
         ) {
+            // Ikon Panah (Kiri)
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 tint = Color.White,
                 modifier = Modifier
+                    .align(Alignment.CenterStart)
                     .size(24.dp)
                     .clickable { onBack() }
             )
+
+            // Teks (Tengah)
             Text(
                 text = "Profil Pengguna",
                 color = Color.White,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center)
             )
+
+            // Tombol Ubah/Simpan (Kanan)
             Surface(
                 color = if (isEditMode) LightGreen else Color.White.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.clickable { onEditToggle() }
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .clickable { onEditToggle() }
             ) {
                 Text(
                     text = if (isEditMode) "Simpan" else "Ubah",
@@ -399,16 +403,10 @@ fun RegisteredDeviceSection() {
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(text = "ESP32-Bak-01", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(text = "Sensor DS18B20", color = Color.Gray, fontSize = 12.sp)
+                    Text(text = "Sensor NTC Probe", color = Color.Gray, fontSize = 12.sp)
                     Text(text = "•Online", color = LightGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
-@Composable
-fun ProfileScreenPreview() {
-    ProfileScreen()
 }

@@ -2,9 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Izin Notifikasi untuk Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
@@ -27,7 +27,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Registrasi MyFirebaseMessagingService -->
         <service
             android:name=".MyFirebaseMessagingService"
             android:exported="false">

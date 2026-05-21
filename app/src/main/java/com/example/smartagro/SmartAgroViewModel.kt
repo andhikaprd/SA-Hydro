@@ -1,10 +1,11 @@
 package com.example.smartagro
 
+import android.app.Application // Perlu untuk Context Notifikasi
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel // Diubah dari ViewModel ke AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,17 @@ import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
 
-class SmartAgroViewModel : ViewModel() {
+// PERUBAHAN: Class sekarang menggunakan AndroidViewModel agar bisa membaca Context untuk notifikasi
+class SmartAgroViewModel(application: Application) : AndroidViewModel(application) {
+
+    // ==========================================
+    // DEKLARASI ALAT NOTIFIKASI
+    // ==========================================
+    private val notificationHelper = NotificationHelper(application)
+
+    // Variabel pintar agar notifikasi tidak spam berkali-kali
+    private var hasNotifiedForHighTemp = false
+    // ==========================================
 
     private val _currentTemp = MutableStateFlow(25.1f)
     val currentTemp: StateFlow<Float> = _currentTemp.asStateFlow()
@@ -42,12 +53,13 @@ class SmartAgroViewModel : ViewModel() {
     )
     val temperatureHistory: StateFlow<List<Float>> = _temperatureHistory.asStateFlow()
 
+    // PERUBAHAN: Status suhu disesuaikan dengan threshold alat baru yaitu 26 Derajat
     val tempStatus: StateFlow<String> = _currentTemp.map { temp ->
         when {
             temp < 18f -> "Terlalu Dingin"
-            temp in 18f..24f -> "Normal"
-            temp > 30f -> "Bahaya"
-            temp > 24f -> "Panas"
+            temp in 18f..<26f -> "Normal"
+            temp >= 28f -> "Bahaya"
+            temp >= 26f -> "Panas"
             else -> "Unknown"
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Normal")
@@ -58,7 +70,7 @@ class SmartAgroViewModel : ViewModel() {
     private val _alertCount = MutableStateFlow(2)
     val alertCount: StateFlow<Int> = _alertCount.asStateFlow()
 
-    // Status riil hardware dari ESP32
+    // Status riil hardware dari ESP8266
     private val _peltierStatus = MutableStateFlow(false)
     val peltierStatus: StateFlow<Boolean> = _peltierStatus.asStateFlow()
 
@@ -72,7 +84,7 @@ class SmartAgroViewModel : ViewModel() {
 
     // HEARTBEAT LOGIC
     private val _lastSeen = MutableStateFlow(System.currentTimeMillis())
-    
+
     private val _isDeviceOnline = MutableStateFlow(true)
     val isDeviceOnline: StateFlow<Boolean> = _isDeviceOnline.asStateFlow()
 
@@ -116,7 +128,8 @@ class SmartAgroViewModel : ViewModel() {
     private fun observePeltierLogic() {
         viewModelScope.launch {
             combine(_currentTemp, _forceCoolingFlag, _autoModeEnabled) { temp, manual, auto ->
-                (auto && temp > 28f) || manual
+                // PERUBAHAN: Menyesuaikan suhu pendingin menyala di 26 Derajat
+                (auto && temp >= 26f) || manual
             }.collect { shouldBeOn ->
                 _peltierStatus.value = shouldBeOn
             }
@@ -148,7 +161,6 @@ class SmartAgroViewModel : ViewModel() {
         _userEmail.value = email
         _userLocation.value = location
         _userGardenName.value = garden
-        // Persistence logic could be added here (e.g., DataStore)
     }
 
     fun updateProfileImage(uri: Uri?) {
@@ -167,12 +179,29 @@ class SmartAgroViewModel : ViewModel() {
     private fun simulateTemperatureChange() {
         viewModelScope.launch {
             while (true) {
-                delay(3600000L) 
-                val delta = if (_peltierStatus.value) -0.3f else 0.15f
+                // Interval simulasi sementara dipercepat agar kita bisa melihat notifikasi lebih cepat saat presentasi
+                delay(5000L)
+
+                val delta = if (_peltierStatus.value) -0.3f else 0.5f // Dipercepat naiknya agar kelihatan
                 val nextTemp = (_currentTemp.value + delta + (Random.nextFloat() * 0.2f - 0.1f)).coerceIn(20f, 32f)
-                
+
                 _currentTemp.value = nextTemp
-                
+
+                // ==========================================
+                // LOGIKA PEMICU NOTIFIKASI
+                // ==========================================
+                if (nextTemp >= 26f) { // Jika suhu 26 derajat atau lebih
+                    if (!hasNotifiedForHighTemp) { // Dan jika belum dikirimi peringatan sebelumnya
+                        notificationHelper.showTemperatureAlert(nextTemp) // 1. Kirim notifikasi
+                        hasNotifiedForHighTemp = true                     // 2. Kunci (agar tidak spam berulang kali)
+                    }
+                } else if (nextTemp < 25f) {
+                    // Jika suhu berhasil didinginkan turun ke bawah 25 derajat,
+                    // buka kuncinya agar notifikasi bisa bunyi lagi jika suhu memanas di masa depan.
+                    hasNotifiedForHighTemp = false
+                }
+                // ==========================================
+
                 val nowStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                 if (nowStr != currentDate) {
                     currentDate = nowStr
@@ -190,7 +219,7 @@ class SmartAgroViewModel : ViewModel() {
                 }
                 _temperatureHistory.value = currentHistory
 
-                if (nextTemp > 30f) {
+                if (nextTemp > 28f) { // Jika menembus 28 berarti masuk kategori insiden bahaya
                     _alertCount.value += 1
                 }
                 _lastUpdated.value = "Diperbarui ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}"

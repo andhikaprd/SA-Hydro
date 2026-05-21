@@ -116,12 +116,15 @@ fun AppNavigation() {
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(
-                    // viewModel = viewModel, <-- Bikin error, sudah saya hapus
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Screen.About.route) { AboutScreen(navController) }
-            composable(Screen.Help.route) { HelpGuideScreen(navController) }
+            composable(Screen.About.route) {
+                AboutScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Help.route) {
+                HelpScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }
@@ -169,4 +172,4 @@ data class BottomNavItem(
     val unselectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
     val selectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
     val route: String
-)
+) 

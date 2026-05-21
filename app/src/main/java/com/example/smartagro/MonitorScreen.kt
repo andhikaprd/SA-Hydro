@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -46,7 +48,7 @@ fun MonitorScreen(viewModel: SmartAgroViewModel) {
     val autoModeEnabled by viewModel.autoModeEnabled.collectAsState()
     val isDeviceOnline by viewModel.isDeviceOnline.collectAsState()
     val temperatureHistory by viewModel.temperatureHistory.collectAsState()
-    
+
     val minTemp by viewModel.minTemp.collectAsState()
     val maxTemp by viewModel.maxTemp.collectAsState()
 
@@ -119,7 +121,7 @@ fun MonitorHeaderWithTabs(selectedTab: String, onTabSelected: (String) -> Unit, 
                     fontSize = 12.sp
                 )
             }
-            
+
             Surface(
                 color = if (isOnline) Color.White.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(20.dp)
@@ -135,9 +137,9 @@ fun MonitorHeaderWithTabs(selectedTab: String, onTabSelected: (String) -> Unit, 
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isOnline) "🟢 Online" else "🔴 Offline", 
-                        color = Color.White, 
-                        fontSize = 11.sp, 
+                        text = if (isOnline) "🟢 Online" else "🔴 Offline",
+                        color = Color.White,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -189,7 +191,7 @@ fun MonitorHeaderWithTabs(selectedTab: String, onTabSelected: (String) -> Unit, 
 
 @Composable
 fun MonitorLiveTab(
-    currentTemp: Float, 
+    currentTemp: Float,
     tempStatus: String,
     peltierStatus: Boolean,
     forceCoolingFlag: Boolean,
@@ -201,6 +203,13 @@ fun MonitorLiveTab(
     minTemp: Float?,
     maxTemp: Float?
 ) {
+    // --- LOGIKA WARNA DINAMIS SINKRON DENGAN ALAT IoT (26°C) ---
+    val isHot = currentTemp >= 26f
+
+    // Gunakan warna Merah menyala jika panas, Hijau standar jika normal
+    val cardBgColor = if (isHot) Color(0xFFE53935) else Color(0xFF2E7D32)
+    val displayStatus = if (isHot) "Suhu Panas" else tempStatus
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -209,17 +218,19 @@ fun MonitorLiveTab(
     ) {
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 1. Kartu Hijau LIVE MONITORING - Centered horizontalAlignment
+        // 1. Kartu LIVE MONITORING
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .alpha(if (isOnline) 1f else 0.6f),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E7D32)),
+            colors = CardDefaults.cardColors(containerColor = cardBgColor),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -227,7 +238,7 @@ fun MonitorLiveTab(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = "LIVE MONITORING", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
-                
+
                 Text(
                     text = String.format(Locale.getDefault(), "%.1f°C", currentTemp),
                     color = Color.White,
@@ -235,7 +246,7 @@ fun MonitorLiveTab(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.alpha(if (isOnline) 1f else 0.5f)
                 )
-                
+
                 if (!isOnline) {
                     Text(
                         text = "Data Terakhir Tersimpan (Offline)",
@@ -247,14 +258,19 @@ fun MonitorLiveTab(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(color = Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(20.dp)) {
-                        Text(text = tempStatus, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                        Text(
+                            text = displayStatus,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
                     }
                     Surface(color = Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(20.dp)) {
                         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (peltierStatus) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward, 
-                                contentDescription = null, 
-                                tint = Color.White, 
+                                imageVector = if (peltierStatus) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                contentDescription = null,
+                                tint = Color.White,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -267,7 +283,7 @@ fun MonitorLiveTab(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 2. Kartu 10 Pembacaan Terakhir
+        // 2. Kartu Visualisasi Real-time
         Card(
             modifier = Modifier.fillMaxWidth().alpha(if (isOnline) 1f else 0.7f),
             shape = RoundedCornerShape(24.dp),
@@ -300,21 +316,21 @@ fun MonitorLiveTab(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = "Kendali Peltier", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                
+
                 val statusText = if (peltierStatus) {
                     if (forceCoolingFlag) "Unit Chiller ON (Mode: Manual)" else "Unit Chiller ON (Mode: Otomatis)"
                 } else {
                     "Unit Chiller OFF"
                 }
-                
+
                 val statusColor = if (peltierStatus) Color(0xFF2196F3) else Color.Gray
 
                 Surface(color = statusColor.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
                     Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (peltierStatus) Icons.Default.AcUnit else Icons.Default.PowerSettingsNew, 
-                            contentDescription = null, 
-                            tint = statusColor, 
+                            imageVector = if (peltierStatus) Icons.Default.AcUnit else Icons.Default.PowerSettingsNew,
+                            contentDescription = null,
+                            tint = statusColor,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -322,39 +338,37 @@ fun MonitorLiveTab(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // SIDE-BY-SIDE CONTROLS
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Column for Force Cooling
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     PeltierSwitchCard(
-                        modifier = Modifier.fillMaxWidth(), 
-                        title = "Force Cooling", 
+                        modifier = Modifier.fillMaxWidth(),
+                        title = "Force Cooling",
                         desc = if (isOnline) "Paksa mendinginkan" else "Offline",
                         checked = forceCoolingFlag,
                         onCheckedChange = if (isOnline) onForceCoolingChange else { _ -> },
                         enabled = isOnline
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.width(12.dp))
-                
-                // Column for Mode Otomatis
+
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     PeltierSwitchCard(
-                        modifier = Modifier.fillMaxWidth(), 
-                        title = "Mode Otomatis", 
+                        modifier = Modifier.fillMaxWidth(),
+                        title = "Mode Otomatis",
                         desc = if (isOnline) "Sistem cerdas" else "Offline",
                         checked = autoModeEnabled,
                         onCheckedChange = if (isOnline) onAutoModeChange else { _ -> },
@@ -375,7 +389,13 @@ fun MonitorLiveTab(
         // 5. Pembacaan Terkini
         Text(text = "Pembacaan Terkini", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(12.dp))
-        RecentReadingsList()
+
+        // Panggil komponen dinamis dengan parameter
+        RecentReadingsList(
+            currentTemp = currentTemp,
+            tempStatus = displayStatus,
+            temperatureHistory = temperatureHistory
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -394,8 +414,7 @@ fun RealtimeLineChart(data: List<Float>) {
         val width = size.width
         val height = size.height
         val spacing = width / (data.size - 1)
-        
-        // Adaptive Scaling
+
         val maxData = (data.maxOrNull() ?: 30f) + 0.5f
         val minData = (data.minOrNull() ?: 20f) - 0.5f
         val range = (maxData - minData).coerceAtLeast(1f)
@@ -406,7 +425,6 @@ fun RealtimeLineChart(data: List<Float>) {
             androidx.compose.ui.geometry.Offset(x, y)
         }
 
-        // 1. Draw Gradient Fill
         val fillPath = Path().apply {
             moveTo(0f, height)
             points.forEach { lineTo(it.x, it.y) }
@@ -420,7 +438,6 @@ fun RealtimeLineChart(data: List<Float>) {
             )
         )
 
-        // 2. Draw Smooth Line
         val linePath = Path().apply {
             points.forEachIndexed { index, point ->
                 if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
@@ -432,7 +449,6 @@ fun RealtimeLineChart(data: List<Float>) {
             style = Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
         )
 
-        // 3. Draw Latest Data Dot
         val lastPoint = points.last()
         drawCircle(
             color = LightGreen,
@@ -452,7 +468,6 @@ fun RiwayatGrafikTab() {
     var selectedInnerTab by remember { mutableStateOf("Grafik") }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Tab Riwayat & Grafik internal
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -487,9 +502,9 @@ fun RiwayatGrafikTab() {
                 .padding(horizontal = 20.dp)
         ) {
             HistorySummaryCardsRow()
-            
+
             Spacer(modifier = Modifier.height(20.dp))
-            
+
             if (selectedInnerTab == "Grafik") {
                 GrafikTabContent()
             } else {
@@ -507,15 +522,15 @@ private fun HistorySummaryCardsRow() {
     ) {
         SummaryCard(
             modifier = Modifier.weight(1f),
-            icon = Icons.Default.Storage,
-            iconTint = Color(0xFF2196F3),
+            icon = Icons.Default.History,
+            iconTint = DarkGreen,
             value = "12",
             label = "Total Data"
         )
         SummaryCard(
             modifier = Modifier.weight(1f),
-            icon = Icons.AutoMirrored.Filled.Segment,
-            iconTint = Color(0xFF4CAF50),
+            icon = Icons.Default.Thermostat,
+            iconTint = DarkGreen,
             value = "25.4°C",
             label = "Rata - rata"
         )
@@ -603,7 +618,7 @@ private fun GrafikTabContent() {
                             }
                         }
                     }
-                    
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(8.dp).background(LightGreen, RoundedCornerShape(2.dp)))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -614,18 +629,16 @@ private fun GrafikTabContent() {
                         Text(text = "Maks", fontSize = 10.sp, color = Color.Gray)
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
-                // Grafik Line Chart
+
                 Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                     val dummyData = listOf(24.2f, 25.4f, 28.2f, 26.1f, 27.5f, 25.0f, 24.8f)
                     LineChartHistoryInternal(data = dummyData)
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
-                // Warning Box
+
                 Surface(
                     color = Color(0xFFFFF5F5),
                     shape = RoundedCornerShape(12.dp),
@@ -643,7 +656,7 @@ private fun GrafikTabContent() {
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Batas aman suhu: 28°C. Hari dengan suhu melebihi batas ditandai merah.",
+                            text = "Batas aman suhu: 26°C. Hari dengan suhu melebihi batas ditandai merah.",
                             color = Color.Red,
                             fontSize = 11.sp,
                             lineHeight = 14.sp
@@ -652,10 +665,9 @@ private fun GrafikTabContent() {
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(20.dp))
-        
-        // Kotak Ringkasan
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -664,7 +676,7 @@ private fun GrafikTabContent() {
             StatBox(label = "Suhu Terendah", value = "22.9°C", color = Color(0xFF2196F3), modifier = Modifier.weight(1f))
             StatBox(label = "Rata-rata", value = "25.4°C", color = LightGreen, modifier = Modifier.weight(1f))
         }
-        
+
         Spacer(modifier = Modifier.height(100.dp))
     }
 }
@@ -753,7 +765,7 @@ private fun DaftarTabContent() {
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        
+
         Text(text = "Riwayat Lengkap", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
 
         Card(
@@ -768,7 +780,7 @@ private fun DaftarTabContent() {
                     Text(text = "Suhu", fontSize = 12.sp, color = LightGreen, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     Text(text = "Status", fontSize = 12.sp, color = LightGreen, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                 }
-                
+
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                     items(historyData) { data ->
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -817,7 +829,7 @@ private fun LineChartHistoryInternal(data: List<Float>) {
         val maxData = data.maxOrNull() ?: 1f
         val minData = data.minOrNull() ?: 0f
         val range = (maxData - minData).coerceAtLeast(1f)
-        
+
         val points = data.mapIndexed { index, value ->
             val x = index * spacing
             val y = height - ((value - minData) / range) * height
@@ -841,7 +853,7 @@ private fun LineChartHistoryInternal(data: List<Float>) {
         drawPath(path = linePath, color = chartColor, style = Stroke(width = 3.dp.toPx()))
 
         points.forEach { (x, y) ->
-            val dotColor = if (data[points.indexOf(Pair(x, y))] >= 28f) Color(0xFFF44336) else chartColor
+            val dotColor = if (data[points.indexOf(Pair(x, y))] >= 26f) Color(0xFFF44336) else chartColor
             drawCircle(color = Color.White, radius = 4.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y))
             drawCircle(color = dotColor, radius = 4.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y), style = Stroke(width = 2.dp.toPx()))
         }
@@ -852,8 +864,8 @@ private data class MonitorHistoryItemData(val time: String, val temp: String, va
 
 @Composable
 fun PeltierSwitchCard(
-    modifier: Modifier = Modifier, 
-    title: String, 
+    modifier: Modifier = Modifier,
+    title: String,
     desc: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -873,14 +885,14 @@ fun PeltierSwitchCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
-                shape = CircleShape, 
-                color = if (enabled) Color(0xFFE3F2FD) else Color.LightGray.copy(alpha = 0.2f), 
+                shape = CircleShape,
+                color = if (enabled) Color(0xFFE3F2FD) else Color.LightGray.copy(alpha = 0.2f),
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
-                        contentDescription = null, 
+                        contentDescription = null,
                         tint = if (enabled) Color(0xFF2196F3) else Color.Gray,
                         modifier = Modifier.size(24.dp)
                     )
@@ -913,7 +925,7 @@ fun LineChartMini(data: List<Float>) {
         val maxData = data.maxOrNull() ?: 1f
         val minData = data.minOrNull() ?: 0f
         val range = (maxData - minData).coerceAtLeast(0.1f)
-        
+
         val points = data.mapIndexed { index, value ->
             Pair(index * spacing, height - ((value - minData) / range) * height)
         }
@@ -932,7 +944,7 @@ fun LineChartMini(data: List<Float>) {
             }
         }
         drawPath(path, color = LightGreen, style = Stroke(width = 2.dp.toPx()))
-        
+
         points.forEach { drawCircle(color = LightGreen, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(it.first, it.second)) }
     }
 }
@@ -945,17 +957,17 @@ private fun StatsGrid(minTemp: Float?, maxTemp: Float?) {
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SmallStatCard(
-                modifier = Modifier.weight(1f), 
-                icon = Icons.Default.Thermostat, 
-                iconTint = Color(0xFF2196F3), 
-                title = "Suhu Min Hari Ini", 
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Thermostat,
+                iconTint = Color(0xFF2196F3),
+                title = "Suhu Min Hari Ini",
                 value = minTempStr
             )
             SmallStatCard(
-                modifier = Modifier.weight(1f), 
-                icon = Icons.Default.Thermostat, 
-                iconTint = Color(0xFFF44336), 
-                title = "Suhu Maks Hari Ini", 
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Thermostat,
+                iconTint = Color(0xFFF44336),
+                title = "Suhu Maks Hari Ini",
                 value = maxTempStr
             )
         }
@@ -983,36 +995,58 @@ private fun SmallStatCard(modifier: Modifier = Modifier, icon: ImageVector, icon
     }
 }
 
+// Komponen Pembacaan Terkini diubah agar menangani data dinamis dari ViewModel
 @Composable
-fun RecentReadingsList() {
-    val readings = listOf(
-        MonitorReading("24.5°C", "11:00:37", "Normal"),
-        MonitorReading("24.6°C", "11:00:35", "Normal"),
-        MonitorReading("24.6°C", "11:00:33", "Normal"),
-        MonitorReading("24.7°C", "11:00:31", "Normal"),
-        MonitorReading("24.7°C", "11:00:29", "Normal")
-    )
+fun RecentReadingsList(
+    currentTemp: Float,
+    tempStatus: String,
+    temperatureHistory: List<Float>
+) {
+    // 1. Inisialisasi daftar dinamis (menyimpan riwayat yang ter-update 10 menit sekali)
+    val readingsList = remember { mutableStateListOf<MonitorReading>() }
+    var lastRecordedTime by remember { mutableStateOf(0L) }
+
+    // 2. Tambahkan bacaan baru setiap 10 menit (600000ms) ATAU jika daftar masih kosong
+    val currentTime = System.currentTimeMillis()
+    if (readingsList.isEmpty() || (currentTime - lastRecordedTime > 600000)) {
+        val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val formattedTime = sdf.format(Date(currentTime))
+        val formattedTemp = String.format(Locale.getDefault(), "%.1f°C", currentTemp)
+
+        // Simpan data baru di urutan paling atas
+        readingsList.add(0, MonitorReading(formattedTemp, formattedTime, tempStatus))
+
+        // Jaga agar list tidak menumpuk terlalu banyak (misal maksimal 5)
+        if (readingsList.size > 5) {
+            readingsList.removeLast()
+        }
+        lastRecordedTime = currentTime
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            readings.forEachIndexed { index, reading ->
+            readingsList.forEachIndexed { index, reading ->
+                val isReadingHot = reading.temp.replace("°C", "").toFloatOrNull() ?: 0f >= 26f
+                val statusColor = if (isReadingHot) Color(0xFFF44336) else LightGreen
+
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Box(modifier = Modifier.size(40.dp).background(LightGreen.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.WaterDrop, contentDescription = null, tint = LightGreen, modifier = Modifier.size(20.dp))
+                    Box(modifier = Modifier.size(40.dp).background(statusColor.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.WaterDrop, contentDescription = null, tint = statusColor, modifier = Modifier.size(20.dp))
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = reading.temp, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         Text(text = reading.time, fontSize = 11.sp, color = Color.Gray)
                     }
-                    Surface(color = LightGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(20.dp)) {
-                        Text(text = reading.status, color = LightGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                    Surface(color = statusColor.copy(alpha = 0.1f), shape = RoundedCornerShape(20.dp)) {
+                        Text(text = reading.status, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
                     }
                 }
-                if (index < readings.size - 1) {
+                if (index < readingsList.size - 1) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
                 }
             }
@@ -1025,5 +1059,28 @@ data class MonitorReading(val temp: String, val time: String, val status: String
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
 fun MonitorScreenPreview() {
-    Text("Preview Monitor Screen")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CreamPastel)
+    ) {
+        MonitorHeaderWithTabs(
+            selectedTab = "Monitor Live",
+            onTabSelected = {},
+            isOnline = true
+        )
+        MonitorLiveTab(
+            currentTemp = 28.0f,
+            tempStatus = "Suhu Panas",
+            peltierStatus = true,
+            forceCoolingFlag = false,
+            autoModeEnabled = true,
+            onForceCoolingChange = {},
+            onAutoModeChange = {},
+            isOnline = true,
+            temperatureHistory = listOf(24.5f, 25.0f, 26.2f, 27.8f, 28.0f),
+            minTemp = 24.5f,
+            maxTemp = 28.0f
+        )
+    }
 }

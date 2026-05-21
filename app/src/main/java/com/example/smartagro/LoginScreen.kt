@@ -5,11 +5,14 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image // Import baru untuk Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource // Import baru untuk painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -26,7 +30,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartagro.ui.theme.CreamPastel
@@ -74,7 +77,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
 
     // --- LOGIKA AUTO-FILL & INISIALISASI RECAPTCHA SAAT SCREEN DIBUKA ---
     LaunchedEffect(Unit) {
-        // Auto-fill dari SharedPreferences
         val isSaved = sharedPreferences.getBoolean("remember_me", false)
         if (isSaved) {
             email = sharedPreferences.getString("saved_email", "") ?: ""
@@ -82,7 +84,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
             rememberMe = true
         }
 
-        // Inisialisasi Google reCAPTCHA Client dengan ID YANG BENAR
         try {
             val application = context.applicationContext as Application
             Recaptcha.getClient(application, "6LdrFNwsAAAAAIlMd1O4zN2-81apvHrW82a83F-m")
@@ -91,7 +92,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                     Log.d("RECAPTCHA", "reCAPTCHA berhasil diinisialisasi")
                 }
                 .onFailure { exception ->
-                    // MEMUNCULKAN PESAN ERROR ASLI DARI GOOGLE
                     Log.e("RECAPTCHA_ERROR", "Gagal inisialisasi: ${exception.message}")
                     Toast.makeText(context, "Error reCAPTCHA: ${exception.message}", Toast.LENGTH_LONG).show()
                 }
@@ -101,7 +101,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         }
     }
 
-    // Validation logic for button enabled state
     val isEmailValid = email.contains("@") && email.contains(".")
     val isPasswordValid = password.length >= 6
     val isFormValid = isEmailValid && isPasswordValid
@@ -115,7 +114,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.4f)
+                .fillMaxHeight(0.35f)
                 .background(
                     DarkGreen,
                     shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
@@ -125,11 +124,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            // SPACING DIPERKECIL: Menarik UI ke atas agar tidak kepotong di bawah
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Header Section
             Surface(
@@ -152,7 +153,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 color = Color.White,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = 12.dp)
             )
 
             Text(
@@ -162,18 +163,20 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // SPACING DIPERKECIL
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Login Card
             Card(
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(28.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp), // PADDING DIPERKECIL dari 28dp agar isi lebih padat
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -190,7 +193,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         color = Color.Gray,
                         modifier = Modifier
                             .align(Alignment.Start)
-                            .padding(top = 4.dp, bottom = 24.dp)
+                            .padding(top = 4.dp, bottom = 20.dp)
                     )
 
                     // Email Input
@@ -218,7 +221,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Password Input
                     Text(
@@ -253,11 +256,10 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         )
                     )
 
-                    // --- FITUR SIMPAN SANDI ---
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
@@ -279,25 +281,21 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .align(Alignment.End)
-                            .padding(top = 4.dp)
                             .clickable { /* Handle forgot password */ }
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // --- LOGIN BUTTON DENGAN VERIFIKASI RECAPTCHA ---
+                    // TOMBOL MASUK UTAMA
                     Button(
                         onClick = {
                             coroutineScope.launch {
                                 isLoginLoading = true
 
                                 if (recaptchaClient != null) {
-                                    // Eksekusi pemeriksaan reCAPTCHA di belakang layar
                                     recaptchaClient!!.execute(RecaptchaAction.LOGIN)
                                         .onSuccess { token ->
                                             isLoginLoading = false
-
-                                            // Lolos validasi reCAPTCHA, jalankan logika login asli
                                             if (email == "admin@gmail.com" && password == "admin123") {
                                                 if (rememberMe) {
                                                     sharedPreferences.edit()
@@ -327,7 +325,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         enabled = isFormValid && !isLoginLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = LightGreen,
                             disabledContainerColor = Color.LightGray
@@ -351,7 +349,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = "atau masuk dengan",
@@ -359,9 +357,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         color = Color.Gray
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Google Login Button
+                    // TOMBOL GOOGLE
                     OutlinedButton(
                         onClick = {
                             coroutineScope.launch {
@@ -407,11 +405,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                         enabled = !isGoogleLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(54.dp),
                         shape = RoundedCornerShape(16.dp),
                         border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f))
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             if (isGoogleLoading) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
@@ -421,20 +423,26 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text("Memproses...", color = Color.Black, fontWeight = FontWeight.Medium)
                             } else {
-                                Icon(
-                                    imageVector = Icons.Default.AccountCircle,
-                                    contentDescription = null,
-                                    tint = Color.Unspecified
+                                // PERUBAHAN: Menggunakan Image (logo asli Google) bukan Icon standar
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_google),
+                                    contentDescription = "Google Icon",
+                                    modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text("Masuk dengan Google", color = Color.Black, fontWeight = FontWeight.Medium)
+                                Text(
+                                    text = "Lanjutkan dengan Google",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 15.sp
+                                )
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(3f))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Footer
             val annotatedString = buildAnnotatedString {

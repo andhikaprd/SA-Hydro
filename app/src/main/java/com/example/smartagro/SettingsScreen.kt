@@ -4,10 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartagro.ui.theme.CreamPastel
@@ -24,7 +26,7 @@ import com.example.smartagro.ui.theme.LightGreen
 
 @Composable
 fun SettingsScreen(
-    onNavigateToProfile: () -> Unit = {}, // Parameter dibiarkan agar AppNavigation.kt tidak error
+    onNavigateToProfile: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onNavigateToHelp: () -> Unit = {},
     onLogout: () -> Unit = {}
@@ -33,280 +35,190 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(CreamPastel)
-            .verticalScroll(rememberScrollState())
     ) {
-        SettingsHeader()
-
-        Column(
+        // HEADER
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .background(DarkGreen)
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 24.dp)
         ) {
-            // KEAMANAN IOT Section
             Column {
-                SectionLabel("KEAMANAN IOT")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column {
-                        SettingsItem(
-                            icon = Icons.Default.Schedule,
-                            iconColor = Color(0xFFF57C00),
-                            title = "Safety Timeout",
-                            trailingText = "Terhubung"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Timer,
-                            iconColor = Color(0xFF4CAF50),
-                            title = "Anti Spam Polaritas",
-                            trailingText = "192.168.1.1"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Info,
-                            iconColor = Color(0xFF2196F3),
-                            title = "Mengapa fitur ini penting?"
-                        )
-                    }
-                }
+                Text(
+                    text = "Pengaturan",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Konfigurasi sistem Smart Agro",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+
+        // KONTEN PENGATURAN
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+
+            // 1. KEAMANAN IOT
+            SettingsSectionTitle(title = "KEAMANAN IOT")
+            SettingsCard {
+                SettingsItem(icon = Icons.Default.Timer, title = "Safety Timeout", value = "Terhubung")
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = Icons.Default.Security, title = "Anti Spam Polaritas", value = "Aktif")
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = Icons.Default.Info, title = "Mengapa fitur ini penting?", iconTint = Color(0xFF2196F3))
             }
 
-            // PENGATURAN MONITORING Section
-            Column {
-                SectionLabel("PENGATURAN MONITORING")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column {
-                        SettingsItem(
-                            icon = Icons.Default.Thermostat,
-                            iconColor = Color(0xFFE53935),
-                            title = "Threshold Suhu",
-                            trailingText = "28°C"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.AccessTime,
-                            iconColor = Color(0xFF1E88E5),
-                            title = "Interval Pembacaan",
-                            trailingText = "1 Jam"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Notifications,
-                            iconColor = Color(0xFFFBC02D),
-                            title = "Mode Notifikasi"
-                        )
-                    }
-                }
+            // 2. PENGATURAN MONITORING
+            SettingsSectionTitle(title = "PENGATURAN MONITORING")
+            SettingsCard {
+                SettingsItem(icon = Icons.Default.Thermostat, title = "Threshold Suhu", value = "26°C", iconTint = Color(0xFFF44336))
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                // Interval pembacaan diubah menjadi 5 menit
+                SettingsItem(icon = Icons.Default.Schedule, title = "Interval Pembacaan", value = "5 menit", iconTint = Color(0xFF2196F3))
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = Icons.Default.NotificationsActive, title = "Mode Notifikasi", iconTint = Color(0xFFFF9800))
             }
 
-            // STATUS PERANGKAT Section
-            Column {
-                SectionLabel("STATUS PERANGKAT")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column {
-                        SettingsItem(
-                            icon = Icons.Default.Memory,
-                            iconColor = Color(0xFF43A047),
-                            title = "Status ESP32",
-                            trailingText = "Terhubung"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Public,
-                            iconColor = Color(0xFF8E24AA),
-                            title = "Alamat IP",
-                            trailingText = "192.168.1.1"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Wifi,
-                            iconColor = Color(0xFF1E88E5),
-                            title = "Sinyal WiFi",
-                            trailingText = "-62 dBm"
-                        )
-                    }
-                }
+            // 3. STATUS PERANGKAT
+            SettingsSectionTitle(title = "STATUS PERANGKAT")
+            SettingsCard {
+                SettingsItem(icon = Icons.Default.CheckCircle, title = "Status ESP32", value = "Terhubung")
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = Icons.Default.Language, title = "Alamat IP", value = "192.168.1.12", iconTint = Color(0xFF9C27B0))
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = Icons.Default.Wifi, title = "Sinyal WiFi", value = "-62 dBm", iconTint = Color(0xFF2196F3))
             }
 
-            // PREFERENSI APLIKASI Section
-            Column {
-                SectionLabel("PREFERENSI APLIKASI")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column {
-                        SettingsItem(
-                            icon = Icons.Default.VolumeUp,
-                            iconColor = Color(0xFFE53935),
-                            title = "Suara Notifikasi"
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Vibration,
-                            iconColor = Color(0xFFF57C00),
-                            title = "Getaran"
-                        )
-                    }
-                }
+            // 4. PREFERENSI APLIKASI
+            SettingsSectionTitle(title = "PREFERENSI APLIKASI")
+            SettingsCard {
+                SettingsItem(icon = Icons.Default.VolumeUp, title = "Suara Notifikasi", iconTint = Color(0xFFF44336))
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = Icons.Outlined.Notifications, title = "Getaran", iconTint = Color(0xFFFF9800))
             }
 
-            // LAINNYA Section
-            Column {
-                SectionLabel("LAINNYA")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column {
-                        SettingsItem(
-                            icon = Icons.Default.Info,
-                            iconColor = Color(0xFF1E88E5),
-                            title = "Tentang Aplikasi",
-                            endIcon = Icons.Default.KeyboardArrowRight,
-                            onClick = onNavigateToAbout
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.MenuBook,
-                            iconColor = Color(0xFFF57C00),
-                            title = "Panduan & Bantuan",
-                            endIcon = Icons.Default.KeyboardArrowRight,
-                            onClick = onNavigateToHelp
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
-                        SettingsItem(
-                            icon = Icons.Default.Logout,
-                            iconColor = Color(0xFFE53935),
-                            title = "Keluar",
-                            titleColor = Color(0xFFE53935),
-                            onClick = onLogout
-                        )
-                    }
-                }
+            // 5. LAINNYA (Dapat di-klik / Navigasi)
+            SettingsSectionTitle(title = "LAINNYA")
+            SettingsCard {
+                SettingsItem(
+                    icon = Icons.Default.Person,
+                    title = "Profil Pengguna",
+                    onClick = onNavigateToProfile
+                )
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "Tentang Aplikasi",
+                    onClick = onNavigateToAbout
+                )
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(
+                    icon = Icons.Outlined.HelpOutline,
+                    title = "Panduan & Bantuan",
+                    iconTint = Color(0xFFFF9800),
+                    onClick = onNavigateToHelp
+                )
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(
+                    icon = Icons.Default.Logout,
+                    title = "Keluar",
+                    titleColor = Color(0xFFF44336),
+                    iconTint = Color(0xFFF44336),
+                    onClick = onLogout
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(40.dp)) // Jarak ekstra agar tidak tertutup Bottom Navigation
         }
     }
 }
 
-@Composable
-fun SettingsHeader() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(DarkGreen)
-            .statusBarsPadding()
-            .padding(24.dp)
-    ) {
-        Column {
-            Text(
-                text = "Pengaturan",
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Konfigurasi sistem Smart Agro",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp
-            )
-        }
-    }
-}
+// --- Komponen Pendukung ---
 
 @Composable
-fun SectionLabel(text: String) {
+fun SettingsSectionTitle(title: String) {
     Text(
-        text = text,
+        text = title,
         color = LightGreen,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(bottom = 12.dp)
+        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        content = content
     )
 }
 
 @Composable
 fun SettingsItem(
     icon: ImageVector,
-    iconColor: Color,
     title: String,
+    value: String? = null,
     titleColor: Color = Color.Black,
-    trailingText: String? = null,
-    endIcon: ImageVector? = null,
-    onClick: () -> Unit = {}
+    iconTint: Color = DarkGreen,
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(16.dp),
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Ikon
         Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = iconColor.copy(alpha = 0.1f),
-            modifier = Modifier.size(36.dp)
+            shape = CircleShape,
+            color = iconTint.copy(alpha = 0.1f),
+            modifier = Modifier.size(40.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
             }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
+        // Judul Menu
         Text(
             text = title,
+            fontSize = 15.sp,
+            fontWeight = if (onClick != null) FontWeight.Medium else FontWeight.Normal,
             color = titleColor,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
+            modifier = Modifier.weight(1f)
         )
 
-        // Mendorong trailing element (teks/icon) mentok ke kanan
-        Spacer(modifier = Modifier.weight(1f))
-
-        if (trailingText != null) {
+        // Nilai (Contoh: "5 menit", "Terhubung") jika ada
+        if (value != null) {
             Text(
-                text = trailingText,
+                text = value,
+                fontSize = 13.sp,
                 color = Color.Gray,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(end = if (endIcon != null) 8.dp else 0.dp)
+                modifier = Modifier.padding(end = 8.dp)
             )
         }
 
-        if (endIcon != null) {
-            Icon(
-                imageVector = endIcon,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
-            )
+        // Panah kanan hanya muncul jika item ini bisa di-klik pindah halaman
+        if (onClick != null) {
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
         }
     }
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
-@Composable
-fun SettingsScreenPreview() {
-    SettingsScreen()
 }

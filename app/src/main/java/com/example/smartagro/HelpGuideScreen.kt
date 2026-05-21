@@ -1,6 +1,5 @@
 package com.example.smartagro
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,186 +17,156 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HelpGuideScreen(navController: NavController) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CreamPastel)
-    ) {
-        // Header Area Background
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-                .background(DarkGreen)
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            HelpHeader(onBack = { navController.popBackStack() })
-
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp)
-            ) {
-                Spacer(modifier = Modifier.height(24.dp))
-                PopularCategoriesSection()
-                
-                Spacer(modifier = Modifier.height(28.dp))
-                
-                Text(
-                    text = "TOPIK BANTUAN",
-                    color = LightGreen,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                ExpandableHelpCard(
-                    title = "Perangkat Tidak Terhubung",
-                    subtitle = "Langkah koneksi ESP32 via WiFi",
-                    icon = Icons.Default.Build,
-                    iconTint = Color(0xFF2196F3),
-                    detailText = "1. Pastikan WiFi di lokasi tandon stabil.\n2. Cek apakah lampu indikator ESP32 menyala.\n3. Coba cabut colok adaptor ESP32 untuk merestart alat."
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                ExpandableHelpCard(
-                    title = "Kalibrasi Sensor DS18B20",
-                    subtitle = "Panduan akurasi sensor suhu air",
-                    icon = Icons.Default.Thermostat,
-                    iconTint = Color(0xFF4CAF50),
-                    detailText = "Pastikan sensor DS18B20 terendam penuh dalam air. Jika suhu tidak wajar, bersihkan ujung sensor dari lumut."
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                ExpandableHelpCard(
-                    title = "Mengatur Threshold Suhu",
-                    subtitle = "Setting batas aman air nutrisi",
-                    icon = Icons.Default.NotificationsActive,
-                    iconTint = Color(0xFFFF9800),
-                    detailText = "Anda dapat mengatur batas atas dan bawah suhu di menu Pengaturan. Sistem akan otomatis menyalakan pendingin jika suhu melewati ambang batas tersebut."
-                )
-                
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-}
-
-@Composable
-fun HelpHeader(onBack: () -> Unit) {
+fun HelpScreen(onBack: () -> Unit = {}) {
     var searchQuery by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .fillMaxSize()
+            .background(CreamPastel)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
-            }
-            Column(modifier = Modifier.padding(start = 8.dp)) {
-                Text(
-                    text = "Bantuan & Panduan",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Panduan & Dokumentasi",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Search Bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+        // HEADER HIJAU UTUH
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            placeholder = { Text("Cari bantuan...", color = Color.Gray) },
-            trailingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
-            shape = RoundedCornerShape(28.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent,
-            ),
-            singleLine = true
-        )
-    }
-}
-
-@Composable
-fun PopularCategoriesSection() {
-    Column {
-        Text(
-            text = "KATEGORI POPULER",
-            color = LightGreen,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .background(
+                    DarkGreen,
+                    shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                )
+                .statusBarsPadding()
+                .padding(bottom = 24.dp)
         ) {
-            CategoryCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.QuestionMark,
-                iconColor = Color(0xFF2196F3),
-                title = "Masalah Umum"
+            // Top Bar: Panah Kiri, Judul Tengah Presisi
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .size(24.dp)
+                        .clickable { onBack() }
+                )
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.align(Alignment.Center)
+                ) {
+                    Text(
+                        text = "Bantuan & Panduan",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Panduan & Dokumentasi",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Search Bar (PERBAIKAN: Menggunakan TextFieldDefaults.colors untuk M3)
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Cari bantuan...", color = Color.Gray) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(50),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                singleLine = true
             )
-            CategoryCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Lightbulb,
-                iconColor = Color(0xFF4CAF50),
-                title = "Tips & Trik"
+        }
+
+        // KONTEN BAWAH (Scrollable)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
+            Text(
+                text = "KATEGORI POPULER",
+                color = LightGreen,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
             )
-            CategoryCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Build,
-                iconColor = Color(0xFFF44336),
-                title = "Pemecahan Masalah"
+
+            // Grid Kategori
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HelpCategoryCard(modifier = Modifier.weight(1f), title = "Masalah Umum", icon = Icons.Default.QuestionMark, iconTint = Color(0xFF2196F3))
+                HelpCategoryCard(modifier = Modifier.weight(1f), title = "Tips & Trik", icon = Icons.Default.Lightbulb, iconTint = Color(0xFF4CAF50))
+                HelpCategoryCard(modifier = Modifier.weight(1f), title = "Pemecahan Masalah", icon = Icons.Default.Build, iconTint = Color(0xFFF44336))
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "TOPIK BANTUAN",
+                color = LightGreen,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
             )
+
+            // Daftar Topik
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                HelpTopicCard(
+                    title = "Perangkat Tidak Terhubung",
+                    desc = "Langkah koneksi ESP32 via WiFi",
+                    icon = Icons.Default.WifiOff,
+                    iconTint = Color(0xFF2196F3)
+                )
+                HelpTopicCard(
+                    title = "Kalibrasi Sensor DS18B20",
+                    desc = "Panduan akurasi sensor suhu air",
+                    icon = Icons.Default.Thermostat,
+                    iconTint = Color(0xFF4CAF50)
+                )
+                HelpTopicCard(
+                    title = "Mengatur Threshold Suhu",
+                    desc = "Setting batas aman air nutrisi",
+                    icon = Icons.Default.NotificationsActive,
+                    iconTint = Color(0xFFFF9800)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }
 
 @Composable
-fun CategoryCard(modifier: Modifier = Modifier, icon: ImageVector, iconColor: Color, title: String) {
+fun HelpCategoryCard(modifier: Modifier = Modifier, title: String, icon: ImageVector, iconTint: Color) {
     Card(
-        modifier = modifier.height(110.dp),
+        modifier = modifier.height(100.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -209,108 +178,42 @@ fun CategoryCard(modifier: Modifier = Modifier, icon: ImageVector, iconColor: Co
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconColor,
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = title,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 14.sp
-            )
+            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 14.sp)
         }
     }
 }
 
 @Composable
-fun ExpandableHelpCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    iconTint: Color,
-    detailText: String
-) {
-    var expanded by remember { mutableStateOf(false) }
-
+fun HelpTopicCard(title: String, desc: String, icon: ImageVector, iconTint: Color) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded },
+            .clickable { },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = iconTint.copy(alpha = 0.1f),
+                modifier = Modifier.size(48.dp)
             ) {
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = CircleShape,
-                    color = iconTint.copy(alpha = 0.1f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = subtitle,
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
-                }
-                
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = Color.Gray
-                )
-            }
-            
-            AnimatedVisibility(visible = expanded) {
-                Column {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        thickness = 0.5.dp,
-                        color = Color.LightGray.copy(alpha = 0.3f)
-                    )
-                    Text(
-                        text = detailText,
-                        fontSize = 13.sp,
-                        color = Color.DarkGray,
-                        lineHeight = 20.sp,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(24.dp))
                 }
             }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = desc, fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(top = 2.dp))
+            }
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
         }
     }
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
-@Composable
-fun HelpGuideScreenPreview() {
-    HelpGuideScreen(rememberNavController())
 }

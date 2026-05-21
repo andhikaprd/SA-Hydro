@@ -14,6 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -40,7 +45,6 @@ fun DashboardScreen(
     onNavigateToNotification: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {}
 ) {
-    // Collecting State from ViewModel
     val currentTemp by viewModel.currentTemp.collectAsState()
     val tempStatus by viewModel.tempStatus.collectAsState()
     val lastUpdated by viewModel.lastUpdated.collectAsState()
@@ -48,12 +52,28 @@ fun DashboardScreen(
     val alertCount by viewModel.alertCount.collectAsState()
     val tempHistory by viewModel.temperatureHistory.collectAsState()
 
+    var lastWarningTime by remember { mutableStateOf(0L) }
+    var recentWarningData by remember { mutableStateOf<WarningData?>(null) }
+
+    if (tempStatus == "Panas" || tempStatus == "Bahaya") {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastWarningTime > 600000) {
+            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+            recentWarningData = WarningData(
+                title = "Suhu Air Terlalu Tinggi!",
+                desc = "Suhu air mencapai ${String.format(Locale.getDefault(), "%.1f", currentTemp)}°C melebihi batas aman...",
+                time = sdf.format(Date(currentTime))
+            )
+            lastWarningTime = currentTime
+        }
+    }
+
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(CreamPastel)
     ) {
-        // Sticky Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -65,13 +85,12 @@ fun DashboardScreen(
             )
         }
 
-        // Scrollable Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp), // Lega vertical padding
-            verticalArrangement = Arrangement.spacedBy(24.dp) // Ruang napas konsisten antar elemen
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             CurrentStatusCard(
                 temp = String.format(Locale.getDefault(), "%.1f", currentTemp),
@@ -91,12 +110,16 @@ fun DashboardScreen(
                 onHistoryClick = onNavigateToHistory
             )
 
-            RecentWarningsSection()
+            if (recentWarningData != null) {
+                RecentWarningsSection(warning = recentWarningData!!)
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
+
+data class WarningData(val title: String, val desc: String, val time: String)
 
 @Composable
 fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
@@ -107,17 +130,21 @@ fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.Medium
     )
 
+    // PERBAIKAN: Membatasi data agar maksimal hanya 12 elemen terakhir yang digambar
+    val displayData = data.takeLast(12)
+
     Canvas(modifier = modifier) {
-        if (data.size < 2) return@Canvas
+        if (displayData.size < 2) return@Canvas
 
         val width = size.width
         val height = size.height
+        // Rentang diubah agar grafik lebih adaptif dan tidak mentok di bawah
         val minTemp = 20f
         val maxTemp = 35f
         val range = maxTemp - minTemp
 
-        val points = data.mapIndexed { index, temp ->
-            val x = index * (width / (data.size - 1))
+        val points = displayData.mapIndexed { index, temp ->
+            val x = index * (width / (displayData.size - 1))
             val normalizedTemp = temp.coerceIn(minTemp, maxTemp)
             val y = height - ((normalizedTemp - minTemp) / range) * height
             androidx.compose.ui.geometry.Offset(x, y)
@@ -143,9 +170,9 @@ fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
                 center = offset
             )
 
-            val text = String.format(Locale.getDefault(), "%.1f", data[index])
+            val text = String.format(Locale.getDefault(), "%.1f", displayData[index])
             val textLayoutResult = textMeasurer.measure(text, labelStyle)
-            
+
             drawText(
                 textMeasurer = textMeasurer,
                 text = text,
@@ -232,7 +259,7 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
             modifier = Modifier
                 .padding(24.dp)
                 .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally // Konten rata tengah persis
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "STATUS SUHU AIR SAAT INI",
@@ -240,17 +267,17 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
-            
-            Spacer(modifier = Modifier.height(24.dp)) // Ruang napas proporsional
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "$temp °C",
-                color = Color(0xFF1B5E20), 
+                color = Color(0xFF1B5E20),
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(16.dp)) // Ruang napas proporsional
+            Spacer(modifier = Modifier.height(16.dp))
 
             Surface(
                 color = LightGreen.copy(alpha = 0.15f),
@@ -265,7 +292,7 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp)) // Ruang napas proporsional
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "Diperbarui $updatedAt",
@@ -356,7 +383,7 @@ fun GraphCard(temperatureHistory: List<Float>) {
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -368,13 +395,13 @@ fun GraphCard(temperatureHistory: List<Float>) {
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(text = "Suhu Air", fontSize = 10.sp, color = Color.Gray)
-                Text(text = "Batas Aman (28°C)", fontSize = 10.sp, color = Color.Gray)
+                Text(text = "Batas Aman (26°C)", fontSize = 10.sp, color = Color.Gray)
             }
         }
     }
@@ -403,7 +430,7 @@ fun ActionButtonsRow(
                 Text("Kendali Peltier", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
-        
+
         OutlinedButton(
             onClick = onHistoryClick,
             modifier = Modifier
@@ -422,7 +449,7 @@ fun ActionButtonsRow(
 }
 
 @Composable
-fun RecentWarningsSection() {
+fun RecentWarningsSection(warning: WarningData) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -432,21 +459,13 @@ fun RecentWarningsSection() {
             Text(text = "Peringatan Terbaru", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text(text = "Lihat semua", fontSize = 12.sp, color = LightGreen, fontWeight = FontWeight.Bold)
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         WarningCard(
-            title = "Suhu Air Terlalu Tinggi!",
-            desc = "Suhu air mencapai 28.2°C melebihi batas....",
-            time = "14:05"
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        WarningCard(
-            title = "Suhu Air Terlalu Tinggi!",
-            desc = "Suhu air mencapai 28.2°C melebihi batas....",
-            time = "14:05"
+            title = warning.title,
+            desc = warning.desc,
+            time = warning.time
         )
     }
 }
@@ -456,7 +475,7 @@ fun WarningCard(title: String, desc: String, time: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5)) // Pinkish background
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -471,14 +490,14 @@ fun WarningCard(title: String, desc: String, time: String) {
                     Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Color.Red, modifier = Modifier.size(20.dp))
                 }
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Red)
                 Text(text = desc, fontSize = 12.sp, color = Color.DarkGray, maxLines = 1)
             }
-            
+
             Text(text = time, fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
         }
     }
