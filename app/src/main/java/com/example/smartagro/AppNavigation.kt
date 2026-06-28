@@ -1,5 +1,7 @@
 package com.example.smartagro
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
@@ -14,9 +16,12 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,6 +48,29 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val viewModel: SmartAgroViewModel = viewModel()
+
+    // --- TAMBAHAN UNTUK SINGLE DEVICE LOGIN ---
+    val context = LocalContext.current
+    val forceLogout by viewModel.forceLogout.collectAsState()
+
+    LaunchedEffect(forceLogout) {
+        if (forceLogout) {
+            Toast.makeText(context, "Akun Anda telah login di perangkat lain!", Toast.LENGTH_LONG).show()
+
+            // Bersihkan data login lokal agar tidak auto-login
+            val sharedPreferences = context.getSharedPreferences("SmartAgroPrefs", Context.MODE_PRIVATE)
+            sharedPreferences.edit().clear().apply()
+
+            // Tendang kembali ke layar Login dan hapus semua riwayat layar
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+
+            // Reset state agar tidak terus-terusan memanggil fungsi logout
+            viewModel.resetLogoutState()
+        }
+    }
+    // -------------------------------------------
 
     val bottomNavRoutes = listOf(
         Screen.Dashboard.route,
@@ -86,6 +114,10 @@ fun AppNavigation() {
         ) {
             composable(Screen.Login.route) {
                 LoginScreen(onLoginSuccess = {
+                    // --- MENGAKTIFKAN PENGAMANAN SAAT BERHASIL LOGIN ---
+                    // Menggunakan "admin_user" sesuai contoh pembuatan session di LoginScreen
+                    viewModel.monitorDeviceSession("admin_user", context)
+
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -101,7 +133,9 @@ fun AppNavigation() {
                 )
             }
             composable(Screen.Monitor.route) { MonitorScreen(viewModel) }
-            composable(Screen.Notification.route) { NotificationScreen() }
+
+            composable(Screen.Notification.route) { NotificationScreen(viewModel) }
+
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
@@ -172,4 +206,4 @@ data class BottomNavItem(
     val unselectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
     val selectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
     val route: String
-) 
+)

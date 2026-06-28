@@ -92,8 +92,9 @@ fun DashboardScreen(
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            // PERUBAHAN: Memasukkan nilai currentTemp asli (bukan String) agar bisa dicek logikanya
             CurrentStatusCard(
-                temp = String.format(Locale.getDefault(), "%.1f", currentTemp),
+                currentTemp = currentTemp,
                 status = tempStatus,
                 updatedAt = lastUpdated
             )
@@ -130,7 +131,6 @@ fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.Medium
     )
 
-    // PERBAIKAN: Membatasi data agar maksimal hanya 12 elemen terakhir yang digambar
     val displayData = data.takeLast(12)
 
     Canvas(modifier = modifier) {
@@ -138,7 +138,6 @@ fun RealtimeLineChart(data: List<Float>, modifier: Modifier = Modifier) {
 
         val width = size.width
         val height = size.height
-        // Rentang diubah agar grafik lebih adaptif dan tidak mentok di bawah
         val minTemp = 20f
         val maxTemp = 35f
         val range = maxTemp - minTemp
@@ -248,12 +247,25 @@ fun HeaderIconBox(icon: ImageVector) {
 }
 
 @Composable
-fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
+fun CurrentStatusCard(currentTemp: Float, status: String, updatedAt: String) {
+    // PERUBAHAN LOGIKA WARNA
+    val isHot = currentTemp >= 26f
+    val tempText = String.format(Locale.getDefault(), "%.1f", currentTemp)
+
+    // Warna berubah jadi merah terang jika panas, kembali putih jika normal
+    val cardBackgroundColor = if (isHot) Color(0xFFE53935) else Color.White
+    val titleColor = if (isHot) Color.White.copy(alpha = 0.8f) else Color.Gray
+    val tempColor = if (isHot) Color.White else Color(0xFF1B5E20)
+    val statusBgColor = if (isHot) Color.White.copy(alpha = 0.2f) else LightGreen.copy(alpha = 0.15f)
+    val statusTextColor = if (isHot) Color.White else LightGreen
+    val timeColor = if (isHot) Color.White.copy(alpha = 0.7f) else Color.Gray
+    val displayStatus = if (isHot) "Bahaya (Panas)" else status
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = cardBackgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHot) 6.dp else 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -263,7 +275,7 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
         ) {
             Text(
                 text = "STATUS SUHU AIR SAAT INI",
-                color = Color.Gray,
+                color = titleColor,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -271,8 +283,8 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "$temp °C",
-                color = Color(0xFF1B5E20),
+                text = "$tempText °C",
+                color = tempColor,
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -280,12 +292,12 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Surface(
-                color = LightGreen.copy(alpha = 0.15f),
+                color = statusBgColor,
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Text(
-                    text = "Kondisi $status",
-                    color = LightGreen,
+                    text = "Kondisi $displayStatus",
+                    color = statusTextColor,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
@@ -296,7 +308,7 @@ fun CurrentStatusCard(temp: String, status: String, updatedAt: String) {
 
             Text(
                 text = "Diperbarui $updatedAt",
-                color = Color.Gray,
+                color = timeColor,
                 fontSize = 11.sp
             )
         }

@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,8 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,10 +23,6 @@ import com.example.smartagro.ui.theme.CreamPastel
 import com.example.smartagro.ui.theme.DarkGreen
 import com.example.smartagro.ui.theme.LightGreen
 
-enum class NotificationType {
-    WARNING, INFO, SYSTEM
-}
-
 data class NotificationItem(
     val id: Int,
     val title: String,
@@ -40,63 +33,35 @@ data class NotificationItem(
     val isRead: Boolean = false
 )
 
+// 1. STATEFUL COMPOSABLE
 @Composable
-fun NotificationScreen() {
-    val notifications = remember {
-        listOf(
-            NotificationItem(
-                1, "Suhu Air Terlalu Tinggi !",
-                "Suhu air mencapai 28.2°C melebihi batas aman. Segera ambil tindakan.",
-                NotificationType.WARNING, "14:05", "28.2°C", false
-            ),
-            NotificationItem(
-                2, "Peringatan Suhu Mendekati Batas",
-                "Suhu air 27.4°C mendekati batas waspada 28°C. Pantau terus.",
-                NotificationType.WARNING, "13:40", "27.4°C", false
-            ),
-            NotificationItem(
-                3, "Suhu Kembali Normal",
-                "Suhu air telah kembali ke kondisi normal 24.5°C . Setelah dilakukan pendinginan",
-                NotificationType.INFO, "13:05", "24.5°C", true
-            ),
-            NotificationItem(
-                4, "Perangkat ESP32 Terhubung",
-                "Sensor ESP32-Bak-01 berhasil terhubung ke jaringan WiFi.",
-                NotificationType.SYSTEM, "06:04", null, true
-            ),
-            NotificationItem(
-                5, "Laporan Harian",
-                "Suhu rata rata hari ini : 24.2°C . Kondisi optimal untuk pertumbuhan selada",
-                NotificationType.INFO, "Kemarin 21:40", "24.2°C", true
-            )
-        )
-    }
+fun NotificationScreen(viewModel: SmartAgroViewModel) {
+    val notifications by viewModel.notifications.collectAsState()
 
-    // State untuk filter yang dipilih
-    var selectedFilter by remember { mutableStateOf("Semua") }
+    NotificationScreenContent(
+        notifications = notifications,
+        onMarkAllAsRead = { viewModel.markAllNotificationsAsRead() },
+        onMarkAsRead = { id -> viewModel.markNotificationAsRead(id) }
+    )
+}
 
-    // Logika Filtering: Filter list berdasarkan tipe yang dipilih
-    val filteredNotifications = remember(selectedFilter, notifications) {
-        when (selectedFilter) {
-            "Peringatan" -> notifications.filter { it.type == NotificationType.WARNING }
-            "Info" -> notifications.filter { it.type == NotificationType.INFO }
-            "Sistem" -> notifications.filter { it.type == NotificationType.SYSTEM }
-            else -> notifications
-        }
-    }
+// 2. STATELESS COMPOSABLE
+@Composable
+fun NotificationScreenContent(
+    notifications: List<NotificationItem>,
+    onMarkAllAsRead: () -> Unit = {},
+    onMarkAsRead: (Int) -> Unit = {}
+) {
+    val unreadCount = notifications.count { !it.isRead }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(CreamPastel)
     ) {
-        NotificationHeader()
-
-        // Mengirim state dan callback ke FilterTabRow
-        FilterTabRow(
-            selectedFilter = selectedFilter,
-            onFilterSelected = { selectedFilter = it },
-            notifications = notifications
+        NotificationHeader(
+            unreadCount = unreadCount,
+            onReadAllClick = onMarkAllAsRead
         )
 
         LazyColumn(
@@ -104,19 +69,22 @@ fun NotificationScreen() {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(filteredNotifications) { item ->
-                when (item.type) {
-                    NotificationType.WARNING -> WarningNotificationCard(item)
-                    NotificationType.INFO -> InfoNotificationCard(item)
-                    NotificationType.SYSTEM -> SystemNotificationCard(item)
-                }
+            // Langsung melooping semua notifikasi tanpa filter
+            items(notifications) { item ->
+                NotificationCard(
+                    item = item,
+                    onReadClick = { onMarkAsRead(item.id) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun NotificationHeader() {
+fun NotificationHeader(
+    unreadCount: Int,
+    onReadAllClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -132,7 +100,7 @@ fun NotificationHeader() {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "2 belum dibaca",
+                text = "$unreadCount belum dibaca",
                 color = Color.White.copy(alpha = 0.8f),
                 fontSize = 14.sp
             )
@@ -141,7 +109,8 @@ fun NotificationHeader() {
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .clickable { /* Action */ },
+                .clip(RoundedCornerShape(20.dp))
+                .clickable { onReadAllClick() },
             color = Color.White.copy(alpha = 0.2f),
             shape = RoundedCornerShape(20.dp)
         ) {
@@ -155,65 +124,22 @@ fun NotificationHeader() {
     }
 }
 
+// UNIFIED NOTIFICATION CARD
 @Composable
-fun FilterTabRow(
-    selectedFilter: String,
-    onFilterSelected: (String) -> Unit,
-    notifications: List<NotificationItem>
-) {
-    val filterOptions = listOf("Semua", "Peringatan", "Info", "Sistem")
+fun NotificationCard(item: NotificationItem, onReadClick: () -> Unit) {
+    // Menentukan ikon dan warna berdasarkan tipe notifikasi
+    val (icon, tintColor) = when (item.type) {
+        NotificationType.WARNING -> Pair(Icons.Default.NotificationsActive, Color.Red)
+        NotificationType.INFO -> Pair(Icons.Default.Info, Color(0xFF2196F3))
+        NotificationType.SYSTEM -> Pair(Icons.Default.CheckCircle, DarkGreen)
+    }
 
-    Surface(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        shadowElevation = 1.dp
-    ) {
-        LazyRow(
-            modifier = Modifier.padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(filterOptions) { filter ->
-                val isSelected = filter == selectedFilter
-
-                // Menghitung jumlah notifikasi per kategori secara dinamis
-                val count = when (filter) {
-                    "Semua" -> notifications.size
-                    "Peringatan" -> notifications.count { it.type == NotificationType.WARNING }
-                    "Info" -> notifications.count { it.type == NotificationType.INFO }
-                    "Sistem" -> notifications.count { it.type == NotificationType.SYSTEM }
-                    else -> 0
-                }
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (isSelected) DarkGreen else Color.Transparent)
-                        .clickable { onFilterSelected(filter) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "$filter ($count)",
-                        color = if (isSelected) Color.White else Color.Gray,
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ... Sisanya (WarningNotificationCard, InfoNotificationCard, SystemNotificationCard) tetap sama ...
-
-@Composable
-fun WarningNotificationCard(item: NotificationItem) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+            .clickable { onReadClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5)),
+        colors = CardDefaults.cardColors(containerColor = Color.White), // Latar seragam putih
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
@@ -221,15 +147,15 @@ fun WarningNotificationCard(item: NotificationItem) {
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(6.dp)
-                    .background(Color.Red)
+                    .background(tintColor) // Garis warna sesuai tipe
             )
 
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.NotificationsActive,
+                        imageVector = icon,
                         contentDescription = null,
-                        tint = Color.Red,
+                        tint = tintColor,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -260,122 +186,22 @@ fun WarningNotificationCard(item: NotificationItem) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = item.value ?: "", color = LightGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(text = item.time, color = Color.Gray, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = "Tandai Dibaca",
-                        color = LightGreen,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.clickable { /* Action */ }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun InfoNotificationCard(item: NotificationItem) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(6.dp)
-                    .background(Color(0xFF2196F3))
-            )
-
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = Color(0xFF2196F3),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = item.title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = item.description,
-                    fontSize = 13.sp,
-                    color = Color.DarkGray,
-                    lineHeight = 18.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (item.value != null) {
-                        Text(text = item.value, color = LightGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(text = item.value, color = tintColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         Spacer(modifier = Modifier.width(16.dp))
                     }
                     Text(text = item.time, color = Color.Gray, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (!item.isRead) {
+                        Text(
+                            text = "Tandai Dibaca",
+                            color = LightGreen,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.clickable { onReadClick() }
+                        )
+                    }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun SystemNotificationCard(item: NotificationItem) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(6.dp)
-                    .background(Color(0xFF9C27B0))
-            )
-
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = Color(0xFF9C27B0),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = item.title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = item.description,
-                    fontSize = 13.sp,
-                    color = Color.DarkGray,
-                    lineHeight = 18.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(text = item.time, color = Color.Gray, fontSize = 12.sp)
             }
         }
     }
@@ -384,5 +210,34 @@ fun SystemNotificationCard(item: NotificationItem) {
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
 fun NotificationScreenPreview() {
-    NotificationScreen()
+    val dummyData = listOf(
+        NotificationItem(
+            id = 1,
+            title = "Suhu Air Terlalu Tinggi !",
+            description = "Suhu air mencapai 28.2°C melebihi batas aman. Peltier pendingin diaktifkan.",
+            type = NotificationType.WARNING,
+            time = "Senin, 14:05", // Dummy data sudah pakai Hari
+            value = "28.2°C",
+            isRead = false
+        ),
+        NotificationItem(
+            id = 2,
+            title = "Suhu Kembali Normal",
+            description = "Suhu air telah stabil dan kembali ke kondisi optimal.",
+            type = NotificationType.INFO,
+            time = "Senin, 13:05",
+            value = "24.5°C",
+            isRead = false
+        ),
+        NotificationItem(
+            id = 3,
+            title = "Koneksi Stabil",
+            description = "Sistem NodeMCU dan sensor suhu terhubung dengan baik.",
+            type = NotificationType.SYSTEM,
+            time = "Senin, 12:00",
+            isRead = true
+        )
+    )
+
+    NotificationScreenContent(notifications = dummyData)
 }

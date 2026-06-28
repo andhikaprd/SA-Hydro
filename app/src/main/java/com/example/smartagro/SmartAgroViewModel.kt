@@ -1,18 +1,22 @@
 package com.example.smartagro
 
-import android.app.Application // Perlu untuk Context Notifikasi
+import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.provider.Settings
 import android.widget.Toast
-import androidx.lifecycle.AndroidViewModel // Diubah dari ViewModel ke AndroidViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -21,24 +25,24 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.random.Random
 
-// PERUBAHAN: Class sekarang menggunakan AndroidViewModel agar bisa membaca Context untuk notifikasi
 class SmartAgroViewModel(application: Application) : AndroidViewModel(application) {
 
-    // ==========================================
-    // DEKLARASI ALAT NOTIFIKASI
-    // ==========================================
     private val notificationHelper = NotificationHelper(application)
-
-    // Variabel pintar agar notifikasi tidak spam berkali-kali
     private var hasNotifiedForHighTemp = false
+
     // ==========================================
+    // STATE UNTUK KEAMANAN (SINGLE DEVICE LOGIN)
+    // ==========================================
+    private val _forceLogout = MutableStateFlow(false)
+    val forceLogout: StateFlow<Boolean> = _forceLogout.asStateFlow()
+
+    private val _notifications = MutableStateFlow<List<NotificationItem>>(emptyList())
+    val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
 
     private val _currentTemp = MutableStateFlow(25.1f)
     val currentTemp: StateFlow<Float> = _currentTemp.asStateFlow()
 
-    // Logika Pelacakan Suhu Min dan Maks
     private val _minTemp = MutableStateFlow<Float?>(22.1f)
     val minTemp: StateFlow<Float?> = _minTemp.asStateFlow()
 
@@ -47,13 +51,9 @@ class SmartAgroViewModel(application: Application) : AndroidViewModel(applicatio
 
     private var currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
-    // temperatureHistory untuk Sliding Window Grafik Real-time
-    private val _temperatureHistory = MutableStateFlow<List<Float>>(
-        listOf(24.5f, 25.0f, 25.2f, 24.8f, 25.1f, 25.5f, 25.3f, 25.6f, 25.4f, 25.2f)
-    )
+    private val _temperatureHistory = MutableStateFlow<List<Float>>(emptyList())
     val temperatureHistory: StateFlow<List<Float>> = _temperatureHistory.asStateFlow()
 
-    // PERUBAHAN: Status suhu disesuaikan dengan threshold alat baru yaitu 26 Derajat
     val tempStatus: StateFlow<String> = _currentTemp.map { temp ->
         when {
             temp < 18f -> "Terlalu Dingin"
@@ -64,31 +64,26 @@ class SmartAgroViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Normal")
 
-    private val _lastUpdated = MutableStateFlow("Baru saja")
+    private val _lastUpdated = MutableStateFlow("Menunggu data...")
     val lastUpdated: StateFlow<String> = _lastUpdated.asStateFlow()
 
-    private val _alertCount = MutableStateFlow(2)
+    private val _alertCount = MutableStateFlow(0)
     val alertCount: StateFlow<Int> = _alertCount.asStateFlow()
 
-    // Status riil hardware dari ESP8266
     private val _peltierStatus = MutableStateFlow(false)
     val peltierStatus: StateFlow<Boolean> = _peltierStatus.asStateFlow()
 
-    // Perintah saklar manual dari Android
     private val _forceCoolingFlag = MutableStateFlow(false)
     val forceCoolingFlag: StateFlow<Boolean> = _forceCoolingFlag.asStateFlow()
 
-    // Mode Otomatis
     private val _autoModeEnabled = MutableStateFlow(true)
     val autoModeEnabled: StateFlow<Boolean> = _autoModeEnabled.asStateFlow()
 
-    // HEARTBEAT LOGIC
     private val _lastSeen = MutableStateFlow(System.currentTimeMillis())
-
-    private val _isDeviceOnline = MutableStateFlow(true)
+    private val _isDeviceOnline = MutableStateFlow(false)
     val isDeviceOnline: StateFlow<Boolean> = _isDeviceOnline.asStateFlow()
 
-    // --- PROFILE DATA STATES (Persistent during App Lifecycle) ---
+    // --- PROFILE DATA STATES ---
     private val _userName = MutableStateFlow("Bejo Morena")
     val userName: StateFlow<String> = _userName.asStateFlow()
 
@@ -108,10 +103,200 @@ class SmartAgroViewModel(application: Application) : AndroidViewModel(applicatio
     val profileImageUri: StateFlow<Uri?> = _profileImageUri.asStateFlow()
 
     init {
-        simulateTemperatureChange()
-        observePeltierLogic()
         startHeartbeatMonitor()
-        simulateHeartbeat()
+        fetchNotifications()
+        fetchMonitoringData()
+        fetchControlData()
+    }
+
+    // ==========================================
+    // FUNGSI MATA-MATA (MONITOR DEVICE SESSION)
+    // ==========================================
+    fun monitorDeviceSession(userId: String, context: Context) {
+        val currentDeviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+
+        database.child("users").child(userId).child("device_id").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val firebaseDeviceId = snapshot.getValue(String::class.java)
+                if (firebaseDeviceId != null && firebaseDeviceId != currentDeviceId) {
+                    _forceLogout.value = true
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    fun resetLogoutState() {
+        _forceLogout.value = false
+    }
+
+    // ==========================================
+    // FORMAT HARI DAN JAM OTOMATIS
+    // ==========================================
+    private fun formatWaktuNotifikasi(waktuDariFirebase: String): String {
+        // Jika kosong, ambil waktu saat ini
+        if (waktuDariFirebase.isEmpty()) {
+            val formatBaru = SimpleDateFormat("EEEE, HH:mm", Locale("id", "ID"))
+            return formatBaru.format(Date())
+        }
+
+        // Jika dari firebase hanya mengirim jam (contoh: "14:05"), tambahkan hari ini
+        if (waktuDariFirebase.length <= 5 && waktuDariFirebase.contains(":")) {
+            val formatHari = SimpleDateFormat("EEEE", Locale("id", "ID"))
+            val hariIni = formatHari.format(Date())
+            return "$hariIni, $waktuDariFirebase"
+        }
+
+        // Coba parsing jika formatnya "yyyy-MM-dd HH:mm:ss"
+        try {
+            val formatAsli = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val date = formatAsli.parse(waktuDariFirebase)
+            if (date != null) {
+                val formatBaru = SimpleDateFormat("EEEE, HH:mm", Locale("id", "ID"))
+                return formatBaru.format(date)
+            }
+        } catch (e: Exception) {
+            // Biarkan lewat jika gagal parsing
+        }
+
+        // Jika tidak dikenali, kembalikan teks aslinya
+        return waktuDariFirebase
+    }
+
+    private fun fetchNotifications() {
+        val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+        database.child("notifikasi").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val notifList = mutableListOf<NotificationItem>()
+                var idCounter = 1
+
+                for (notifSnapshot in snapshot.children) {
+                    val judul = notifSnapshot.child("judul").getValue(String::class.java) ?: ""
+                    val pesan = notifSnapshot.child("pesan").getValue(String::class.java) ?: ""
+                    val rawWaktu = notifSnapshot.child("waktu").getValue(String::class.java) ?: ""
+                    val statusBaca = notifSnapshot.child("status_baca").getValue(Boolean::class.java) ?: false
+
+                    // Gunakan fungsi format yang baru dibuat
+                    val waktuFormatted = formatWaktuNotifikasi(rawWaktu)
+
+                    val type = if (judul.contains("Tinggi", ignoreCase = true) || judul.contains("Peringatan", ignoreCase = true)) {
+                        NotificationType.WARNING
+                    } else {
+                        NotificationType.INFO
+                    }
+
+                    notifList.add(
+                        NotificationItem(
+                            id = idCounter++,
+                            title = judul,
+                            description = pesan,
+                            type = type,
+                            time = waktuFormatted, // Waktu sudah berformat Hari, Jam
+                            isRead = statusBaca
+                        )
+                    )
+                }
+                _notifications.value = notifList.reversed()
+                _alertCount.value = notifList.count { !it.isRead }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    fun markNotificationAsRead(notificationId: Int) {
+        viewModelScope.launch {
+            val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+            database.child("notifikasi").addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    var currentId = 1
+                    for (notifSnapshot in snapshot.children) {
+                        if (currentId == notificationId) {
+                            notifSnapshot.ref.child("status_baca").setValue(true)
+                            break
+                        }
+                        currentId++
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+    }
+
+    fun markAllNotificationsAsRead() {
+        viewModelScope.launch {
+            val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+            database.child("notifikasi").addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    for (notifSnapshot in snapshot.children) {
+                        notifSnapshot.ref.child("status_baca").setValue(true)
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+    }
+
+    private fun fetchMonitoringData() {
+        val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+        database.child("monitoring").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val suhuAir = snapshot.child("suhu_air").getValue(Float::class.java) ?: 0f
+                val statusEsp = snapshot.child("status_esp32").getValue(String::class.java) ?: "Offline"
+                val statusPeltierIoT = snapshot.child("status_peltier").getValue(Boolean::class.java) ?: false
+
+                _currentTemp.value = suhuAir
+                _peltierStatus.value = statusPeltierIoT
+
+                if (statusEsp == "Online") {
+                    _lastSeen.value = System.currentTimeMillis()
+                    _isDeviceOnline.value = true
+                }
+
+                if (suhuAir >= 26f) {
+                    if (!hasNotifiedForHighTemp) {
+                        notificationHelper.showTemperatureAlert(suhuAir)
+                        hasNotifiedForHighTemp = true
+                    }
+                } else if (suhuAir < 25f) {
+                    hasNotifiedForHighTemp = false
+                }
+
+                val nowStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                if (nowStr != currentDate) {
+                    currentDate = nowStr
+                    _minTemp.value = suhuAir
+                    _maxTemp.value = suhuAir
+                } else {
+                    _minTemp.value = if (_minTemp.value == null) suhuAir else minOf(_minTemp.value!!, suhuAir)
+                    _maxTemp.value = if (_maxTemp.value == null) suhuAir else maxOf(_maxTemp.value!!, suhuAir)
+                }
+
+                val currentHistory = _temperatureHistory.value.toMutableList()
+                currentHistory.add(suhuAir)
+                if (currentHistory.size > 20) {
+                    currentHistory.removeAt(0)
+                }
+                _temperatureHistory.value = currentHistory
+
+                _lastUpdated.value = "Diperbarui ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}"
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    private fun fetchControlData() {
+        val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+        database.child("control").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val isForceCooling = snapshot.child("force_cooling").getValue(Boolean::class.java) ?: false
+                val isAutoMode = snapshot.child("auto_mode").getValue(Boolean::class.java) ?: true
+
+                _forceCoolingFlag.value = isForceCooling
+                _autoModeEnabled.value = isAutoMode
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun startHeartbeatMonitor() {
@@ -119,19 +304,8 @@ class SmartAgroViewModel(application: Application) : AndroidViewModel(applicatio
             while (true) {
                 val now = System.currentTimeMillis()
                 val diff = now - _lastSeen.value
-                _isDeviceOnline.value = diff < 30000
+                _isDeviceOnline.value = diff < 15000
                 delay(5000)
-            }
-        }
-    }
-
-    private fun observePeltierLogic() {
-        viewModelScope.launch {
-            combine(_currentTemp, _forceCoolingFlag, _autoModeEnabled) { temp, manual, auto ->
-                // PERUBAHAN: Menyesuaikan suhu pendingin menyala di 26 Derajat
-                (auto && temp >= 26f) || manual
-            }.collect { shouldBeOn ->
-                _peltierStatus.value = shouldBeOn
             }
         }
     }
@@ -139,23 +313,20 @@ class SmartAgroViewModel(application: Application) : AndroidViewModel(applicatio
     fun setForceCooling(active: Boolean) {
         viewModelScope.launch {
             _forceCoolingFlag.value = active
+            val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+            database.child("control").child("force_cooling").setValue(active)
         }
     }
 
     fun setAutoMode(active: Boolean) {
         viewModelScope.launch {
             _autoModeEnabled.value = active
+            val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+            database.child("control").child("auto_mode").setValue(active)
         }
     }
 
-    // --- PROFILE UPDATES ---
-    fun updateUserProfile(
-        name: String,
-        phone: String,
-        email: String,
-        location: String,
-        garden: String
-    ) {
+    fun updateUserProfile(name: String, phone: String, email: String, location: String, garden: String) {
         _userName.value = name
         _userPhone.value = phone
         _userEmail.value = email
@@ -165,66 +336,6 @@ class SmartAgroViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateProfileImage(uri: Uri?) {
         _profileImageUri.value = uri
-    }
-
-    private fun simulateHeartbeat() {
-        viewModelScope.launch {
-            while (true) {
-                delay(10000)
-                _lastSeen.value = System.currentTimeMillis()
-            }
-        }
-    }
-
-    private fun simulateTemperatureChange() {
-        viewModelScope.launch {
-            while (true) {
-                // Interval simulasi sementara dipercepat agar kita bisa melihat notifikasi lebih cepat saat presentasi
-                delay(5000L)
-
-                val delta = if (_peltierStatus.value) -0.3f else 0.5f // Dipercepat naiknya agar kelihatan
-                val nextTemp = (_currentTemp.value + delta + (Random.nextFloat() * 0.2f - 0.1f)).coerceIn(20f, 32f)
-
-                _currentTemp.value = nextTemp
-
-                // ==========================================
-                // LOGIKA PEMICU NOTIFIKASI
-                // ==========================================
-                if (nextTemp >= 26f) { // Jika suhu 26 derajat atau lebih
-                    if (!hasNotifiedForHighTemp) { // Dan jika belum dikirimi peringatan sebelumnya
-                        notificationHelper.showTemperatureAlert(nextTemp) // 1. Kirim notifikasi
-                        hasNotifiedForHighTemp = true                     // 2. Kunci (agar tidak spam berulang kali)
-                    }
-                } else if (nextTemp < 25f) {
-                    // Jika suhu berhasil didinginkan turun ke bawah 25 derajat,
-                    // buka kuncinya agar notifikasi bisa bunyi lagi jika suhu memanas di masa depan.
-                    hasNotifiedForHighTemp = false
-                }
-                // ==========================================
-
-                val nowStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                if (nowStr != currentDate) {
-                    currentDate = nowStr
-                    _minTemp.value = nextTemp
-                    _maxTemp.value = nextTemp
-                } else {
-                    _minTemp.value = if (_minTemp.value == null) nextTemp else minOf(_minTemp.value!!, nextTemp)
-                    _maxTemp.value = if (_maxTemp.value == null) nextTemp else maxOf(_maxTemp.value!!, nextTemp)
-                }
-
-                val currentHistory = _temperatureHistory.value.toMutableList()
-                currentHistory.add(nextTemp)
-                if (currentHistory.size > 20) {
-                    currentHistory.removeAt(0)
-                }
-                _temperatureHistory.value = currentHistory
-
-                if (nextTemp > 28f) { // Jika menembus 28 berarti masuk kategori insiden bahaya
-                    _alertCount.value += 1
-                }
-                _lastUpdated.value = "Diperbarui ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}"
-            }
-        }
     }
 
     fun exportHistoryToCSV(context: Context) {

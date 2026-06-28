@@ -2,10 +2,11 @@ package com.example.smartagro
 
 import android.app.Application
 import android.content.Context
+import android.provider.Settings // IMPORT BARU: Untuk mengambil ID Unik HP
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image // Import baru untuk Image
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,7 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource // Import baru untuk painterResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -44,12 +45,29 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.database.FirebaseDatabase // IMPORT BARU: Untuk Database
 import kotlinx.coroutines.launch
 
 // --- IMPORT UNTUK GOOGLE RECAPTCHA ENTERPRISE ---
 import com.google.android.recaptcha.Recaptcha
 import com.google.android.recaptcha.RecaptchaAction
 import com.google.android.recaptcha.RecaptchaClient
+
+// ==========================================================
+// FUNGSI BARU: Menyimpan ID HP ke Firebase untuk Single Device Login
+// ==========================================================
+fun saveDeviceSession(userId: String, context: Context, onComplete: () -> Unit) {
+    // Mengambil ID Unik Bawaan HP Android (Tidak akan berubah kecuali di-Factory Reset)
+    val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+
+    val database = FirebaseDatabase.getInstance("https://smartagro-v1-default-rtdb.asia-southeast1.firebasedatabase.app").reference
+
+    // Menyimpan ID HP tersebut ke folder /users/{userId}/device_id
+    database.child("users").child(userId).child("device_id").setValue(deviceId)
+        .addOnCompleteListener {
+            onComplete()
+        }
+}
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
@@ -129,7 +147,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // SPACING DIPERKECIL: Menarik UI ke atas agar tidak kepotong di bawah
             Spacer(modifier = Modifier.height(16.dp))
 
             // Header Section
@@ -163,7 +180,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 textAlign = TextAlign.Center
             )
 
-            // SPACING DIPERKECIL
             Spacer(modifier = Modifier.height(16.dp))
 
             // Login Card
@@ -176,7 +192,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp), // PADDING DIPERKECIL dari 28dp agar isi lebih padat
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -295,7 +311,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                 if (recaptchaClient != null) {
                                     recaptchaClient!!.execute(RecaptchaAction.LOGIN)
                                         .onSuccess { token ->
-                                            isLoginLoading = false
                                             if (email == "admin@gmail.com" && password == "admin123") {
                                                 if (rememberMe) {
                                                     sharedPreferences.edit()
@@ -306,8 +321,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                                 } else {
                                                     sharedPreferences.edit().clear().apply()
                                                 }
-                                                onLoginSuccess()
+
+                                                // --- MENGAMANKAN SESI LOGIN MANUAL ---
+                                                saveDeviceSession("admin_user", context) {
+                                                    isLoginLoading = false
+                                                    onLoginSuccess()
+                                                }
                                             } else {
+                                                isLoginLoading = false
                                                 Toast.makeText(context, "Email atau Kata Sandi salah", Toast.LENGTH_SHORT).show()
                                             }
                                         }
@@ -384,11 +405,17 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
 
                                         auth.signInWithCredential(authCredential)
                                             .addOnCompleteListener { task ->
-                                                isGoogleLoading = false
                                                 if (task.isSuccessful) {
-                                                    Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
-                                                    onLoginSuccess()
+                                                    val uid = auth.currentUser?.uid ?: "unknown_user"
+
+                                                    // --- MENGAMANKAN SESI LOGIN GOOGLE ---
+                                                    saveDeviceSession(uid, context) {
+                                                        isGoogleLoading = false
+                                                        Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
+                                                        onLoginSuccess()
+                                                    }
                                                 } else {
+                                                    isGoogleLoading = false
                                                     Toast.makeText(context, "Gagal masuk: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
@@ -423,7 +450,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text("Memproses...", color = Color.Black, fontWeight = FontWeight.Medium)
                             } else {
-                                // PERUBAHAN: Menggunakan Image (logo asli Google) bukan Icon standar
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_google),
                                     contentDescription = "Google Icon",

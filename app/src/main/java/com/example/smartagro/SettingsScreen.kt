@@ -10,7 +10,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -84,10 +83,7 @@ fun SettingsScreen(
             SettingsCard {
                 SettingsItem(icon = Icons.Default.Thermostat, title = "Threshold Suhu", value = "26°C", iconTint = Color(0xFFF44336))
                 HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
-                // Interval pembacaan diubah menjadi 5 menit
                 SettingsItem(icon = Icons.Default.Schedule, title = "Interval Pembacaan", value = "5 menit", iconTint = Color(0xFF2196F3))
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
-                SettingsItem(icon = Icons.Default.NotificationsActive, title = "Mode Notifikasi", iconTint = Color(0xFFFF9800))
             }
 
             // 3. STATUS PERANGKAT
@@ -100,15 +96,7 @@ fun SettingsScreen(
                 SettingsItem(icon = Icons.Default.Wifi, title = "Sinyal WiFi", value = "-62 dBm", iconTint = Color(0xFF2196F3))
             }
 
-            // 4. PREFERENSI APLIKASI
-            SettingsSectionTitle(title = "PREFERENSI APLIKASI")
-            SettingsCard {
-                SettingsItem(icon = Icons.Default.VolumeUp, title = "Suara Notifikasi", iconTint = Color(0xFFF44336))
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f), modifier = Modifier.padding(start = 56.dp))
-                SettingsItem(icon = Icons.Outlined.Notifications, title = "Getaran", iconTint = Color(0xFFFF9800))
-            }
-
-            // 5. LAINNYA (Dapat di-klik / Navigasi)
+            // 4. LAINNYA (Dapat di-klik / Navigasi)
             SettingsSectionTitle(title = "LAINNYA")
             SettingsCard {
                 SettingsItem(
